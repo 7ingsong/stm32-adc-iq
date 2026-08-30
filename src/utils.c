@@ -1,6 +1,7 @@
 #include "utils.h"
 #include <stm32f10x_rcc.h>
-
+#include <stm32f10x_gpio.h>
+#include "config.h"
 volatile uint32_t ms_ticks = 0;  // Counter for milliseconds
 
 void SysTick_Handler(void) {
@@ -40,3 +41,17 @@ void delay_ms(uint32_t ms) {
 uint32_t get_ticks_ms(){
     return ms_ticks;
 }
+
+void led_init() {
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+
+    GPIO_InitTypeDef GPIO_InitStructure;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+    GPIO_InitStructure.GPIO_Pin = MCU_LED;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+    GPIO_WriteBit(GPIOB, MCU_LED, 0);
+}
+
+void led_control(int on) { GPIO_WriteBit(GPIOB, MCU_LED, on); }

@@ -1,2 +1,5 @@
 build
 .DS_Store
+*.u12
+*.u16
+*.cf32

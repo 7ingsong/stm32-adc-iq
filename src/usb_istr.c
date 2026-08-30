@@ -1,70 +1,57 @@
-#include "usb_lib.h"
-#include "usbd.h"
 #include "usb_istr.h"
+
+#include "usb_lib.h"
 #include "usb_prop.h"
+#include "usbd.h"
 
-__IO uint16_t wIstr;  /* ISTR register last read value */
-__IO uint8_t bIntPackSOF = 0;  /* SOFs received between 2 consecutive packets */
-__IO uint32_t esof_counter =0; /* expected SOF counter */
-__IO uint32_t wCNTR=0;
+__IO uint16_t wIstr;            /* ISTR register last read value */
+__IO uint8_t bIntPackSOF = 0;   /* SOFs received between 2 consecutive packets */
+__IO uint32_t esof_counter = 0; /* expected SOF counter */
+__IO uint32_t wCNTR = 0;
 
-__IO bool fSuspendEnabled = TRUE;  /* true when suspend is possible */
+__IO bool fSuspendEnabled = TRUE; /* true when suspend is possible */
 
-#define VCOMPORT_IN_FRAME_INTERVAL             5
+#define VCOMPORT_IN_FRAME_INTERVAL 5
 
 __IO uint32_t packet_sent;
 __IO uint32_t packet_receive;
 __IO uint8_t Receive_Buffer[64];
 uint32_t Receive_length;
 
-void OnUsbTransmitted();
+__attribute__((weak)) void OnUsbTransmitted() {}
+__attribute__((weak)) void OnUsbReceived(volatile uint8_t* buf, int n) {}
 
-void EP1_IN_Callback (void)
-{
+void EP1_IN_Callback(void) {
     packet_sent = 1;
     OnUsbTransmitted();
 }
 
-void EP3_OUT_Callback(void)
-{
+void EP3_OUT_Callback(void) {
     packet_receive = 1;
     Receive_length = GetEPRxCount(ENDP3);
     PMAToUserBufferCopy((unsigned char*)Receive_Buffer, ENDP3_RXADDR, Receive_length);
+    OnUsbReceived(Receive_Buffer, Receive_length);
+    CDC_Receive_DATA();
 }
 
-
-void (*pEpInt_IN[7])(void) =
-{
-    EP1_IN_Callback,
-    EP2_IN_Callback,
-    EP3_IN_Callback,
-    EP4_IN_Callback,
-    EP5_IN_Callback,
-    EP6_IN_Callback,
-    EP7_IN_Callback,
+void (*pEpInt_IN[7])(void) = {
+    EP1_IN_Callback, EP2_IN_Callback, EP3_IN_Callback, EP4_IN_Callback,
+    EP5_IN_Callback, EP6_IN_Callback, EP7_IN_Callback,
 };
 
-void (*pEpInt_OUT[7])(void) =
-{
-    EP1_OUT_Callback,
-    EP2_OUT_Callback,
-    EP3_OUT_Callback,
-    EP4_OUT_Callback,
-    EP5_OUT_Callback,
-    EP6_OUT_Callback,
-    EP7_OUT_Callback,
+void (*pEpInt_OUT[7])(void) = {
+    EP1_OUT_Callback, EP2_OUT_Callback, EP3_OUT_Callback, EP4_OUT_Callback,
+    EP5_OUT_Callback, EP6_OUT_Callback, EP7_OUT_Callback,
 };
 
-void USB_Istr(void)
-{
-    uint32_t i=0;
+void USB_Istr(void) {
+    uint32_t i = 0;
     __IO uint32_t EP[8];
 
     wIstr = _GetISTR();
 
 #if (IMR_MSK & ISTR_SOF)
-    if (wIstr & ISTR_SOF & wInterrupt_Mask)
-    {
+    if (wIstr & ISTR_SOF & wInterrupt_Mask) {
         _SetISTR((uint16_t)CLR_SOF);
         bIntPackSOF++;
 #ifdef SOF_CALLBACK
@@ -74,8 +61,7 @@ void USB_Istr(void)
 #endif
 
 #if (IMR_MSK & ISTR_CTR)
-    if (wIstr & ISTR_CTR & wInterrupt_Mask)
-    {
+    if (wIstr & ISTR_CTR & wInterrupt_Mask) {
         /* servicing of the endpoint correct transfer interrupt */
         /* clear of the CTR flag into the sub */
         CTR_LP();
@@ -86,8 +72,7 @@ void USB_Istr(void)
 #endif
 
 #if (IMR_MSK & ISTR_RESET)
-    if (wIstr & ISTR_RESET & wInterrupt_Mask)
-    {
+    if (wIstr & ISTR_RESET & wInterrupt_Mask) {
         _SetISTR((uint16_t)CLR_RESET);
         Device_Property.Reset();
 #ifdef RESET_CALLBACK
@@ -97,8 +82,7 @@ void USB_Istr(void)
 #endif
 
 #if (IMR_MSK & ISTR_DOVR)
-    if (wIstr & ISTR_DOVR & wInterrupt_Mask)
-    {
+    if (wIstr & ISTR_DOVR & wInterrupt_Mask) {
         _SetISTR((uint16_t)CLR_DOVR);
 #ifdef DOVR_CALLBACK
         DOVR_Callback();
@@ -107,8 +91,7 @@ void USB_Istr(void)
 #endif
 
 #if (IMR_MSK & ISTR_ERR)
-    if (wIstr & ISTR_ERR & wInterrupt_Mask)
-    {
+    if (wIstr & ISTR_ERR & wInterrupt_Mask) {
         _SetISTR((uint16_t)CLR_ERR);
 #ifdef ERR_CALLBACK
         ERR_Callback();
@@ -117,8 +100,7 @@ void USB_Istr(void)
 #endif
 
 #if (IMR_MSK & ISTR_WKUP)
-    if (wIstr & ISTR_WKUP & wInterrupt_Mask)
-    {
+    if (wIstr & ISTR_WKUP & wInterrupt_Mask) {
         _SetISTR((uint16_t)CLR_WKUP);
         Resume(RESUME_EXTERNAL);
 #ifdef WKUP_CALLBACK
@@ -128,16 +110,11 @@ void USB_Istr(void)
 #endif
 
 #if (IMR_MSK & ISTR_SUSP)
-    if (wIstr & ISTR_SUSP & wInterrupt_Mask)
-    {
-
+    if (wIstr & ISTR_SUSP & wInterrupt_Mask) {
         /* check if SUSPEND is possible */
-        if (fSuspendEnabled)
-        {
+        if (fSuspendEnabled) {
             Suspend();
-        }
-        else
-        {
+        } else {
             /* if not possible then resume after xx ms */
             Resume(RESUME_LATER);
         }
@@ -148,52 +125,47 @@ void USB_Istr(void)
 #endif
     }
 #endif
-  /*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+    /*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
 
 #if (IMR_MSK & ISTR_ESOF)
-    if (wIstr & ISTR_ESOF & wInterrupt_Mask)
-    {
+    if (wIstr & ISTR_ESOF & wInterrupt_Mask) {
         /* clear ESOF flag in ISTR */
         _SetISTR((uint16_t)CLR_ESOF);
 
-        if ((_GetFNR()&FNR_RXDP)!=0)
-        {
+        if ((_GetFNR() & FNR_RXDP) != 0) {
             /* increment ESOF counter */
-            esof_counter ++;
-            
-            /* test if we enter in ESOF more than 3 times with FSUSP =0 and RXDP =1=>> possible missing SUSP flag*/
-            if ((esof_counter >3)&&((_GetCNTR()&CNTR_FSUSP)==0))
-            {           
+            esof_counter++;
+
+            /* test if we enter in ESOF more than 3 times with FSUSP =0 and RXDP =1=>> possible
+             * missing SUSP flag*/
+            if ((esof_counter > 3) && ((_GetCNTR() & CNTR_FSUSP) == 0)) {
                 /* this a sequence to apply a force RESET*/
-                
+
                 /*Store CNTR value */
-                wCNTR = _GetCNTR(); 
-                
+                wCNTR = _GetCNTR();
+
                 /*Store endpoints registers status */
-                for (i=0;i<8;i++) EP[i] = _GetENDPOINT(i);
-                
+                for (i = 0; i < 8; i++) EP[i] = _GetENDPOINT(i);
+
                 /*apply FRES */
-                wCNTR|=CNTR_FRES;
+                wCNTR |= CNTR_FRES;
                 _SetCNTR(wCNTR);
 
                 /*clear FRES*/
-                wCNTR&=~CNTR_FRES;
+                wCNTR &= ~CNTR_FRES;
                 _SetCNTR(wCNTR);
-                
+
                 /*poll for RESET flag in ISTR*/
-                while((_GetISTR()&ISTR_RESET) == 0);
+                while ((_GetISTR() & ISTR_RESET) == 0);
                 /* clear RESET flag in ISTR */
                 _SetISTR((uint16_t)CLR_RESET);
 
                 /*restore Enpoints*/
-                for (i=0;i<8;i++)
-                _SetENDPOINT(i, EP[i]);
-                
+                for (i = 0; i < 8; i++) _SetENDPOINT(i, EP[i]);
+
                 esof_counter = 0;
             }
-        }
-        else
-        {
+        } else {
             esof_counter = 0;
         }
 
@@ -208,31 +180,25 @@ void USB_Istr(void)
 } /* USB_Istr */
 
 extern __IO uint32_t packet_sent;
-extern __IO  uint32_t packet_receive;
+extern __IO uint32_t packet_receive;
 
-
-uint32_t CDC_Send_DATA (uint8_t *ptrBuffer, uint8_t Send_length)
-{
-    if(Send_length < VIRTUAL_COM_PORT_DATA_SIZE)     
-    {
+uint32_t CDC_Send_DATA(uint8_t* ptrBuffer, uint8_t Send_length) {
+    if (Send_length < VIRTUAL_COM_PORT_DATA_SIZE) {
         /*Sent flag*/
         packet_sent = 0;
         /* send  packet to PMA*/
         UserToPMABufferCopy((unsigned char*)ptrBuffer, ENDP1_TXADDR, Send_length);
         SetEPTxCount(ENDP1, Send_length);
         SetEPTxValid(ENDP1);
-    }
-    else
-    {
+    } else {
         return 0;
-    } 
+    }
     return 1;
 }
 
-uint32_t CDC_Receive_DATA(void)
-{ 
+uint32_t CDC_Receive_DATA(void) {
     /*Receive flag*/
     packet_receive = 0;
-    SetEPRxValid(ENDP3); 
-    return 1 ;
+    SetEPRxValid(ENDP3);
+    return 1;
 }

@@ -1,0 +1,64 @@
+#include "transport.h"
+
+#include "fifo.h"
+#include "misc.h"
+#include "usb_istr.h"
+#include "usbd.h"
+uint8_t usb_tx_buffer[USB_TX_FIFO_SIZE];
+uint8_t usb_rx_buffer[USB_RX_FIFO_SIZE];
+
+fifo_t usb_tx;
+fifo_t usb_rx;
+
+int usb_connected;
+int usb_transmitting;
+
+void OnUsbTransmitted() {
+    uint8_t usb_buf[MAX_USB_PACKET_SIZE];
+    usb_transmitting = 0;
+    int n = fifo_read(&usb_tx, usb_buf, sizeof(usb_buf));
+    if (n > 0) {
+        usb_transmitting = 1;
+        CDC_Send_DATA(usb_buf, n);
+    }
+}
+
+void OnUsbReceived(uint8_t* buf, int n) {
+    fifo_write(&usb_rx, buf, n);
+}
+
+void OnUsbUnconnected() { usb_connected = 0; }
+
+void OnUsbConfigured() {
+    usb_connected = 1;
+    OnUsbTransmitted();
+}
+
+void transport_send(uint8_t* data, int len) {
+    // __disable_irq();
+    fifo_write(&usb_tx, data, len);
+    // __enable_irq();
+    if (!usb_transmitting) {
+        OnUsbTransmitted();
+    }
+}
+
+void transport_init(void) {
+    usb_connected = 0;
+    usb_transmitting = 0;
+
+    Set_System();
+    Set_USBClock();
+    USB_Interrupts_Config();
+    USB_Init();
+
+    fifo_init(&usb_tx, usb_tx_buffer, sizeof(usb_tx_buffer));
+    fifo_init(&usb_rx, usb_rx_buffer, sizeof(usb_rx_buffer));
+}
+
+int transport_recv(uint8_t* buf, int max_len) {
+    int n = fifo_read(&usb_rx, buf, max_len);
+    return n;
+}
+uint32_t transport_get_rx_overflow(void) { return fifo_get_overflow(&usb_rx); }
+uint32_t transport_get_tx_overflow(void) { return fifo_get_overflow(&usb_tx); }

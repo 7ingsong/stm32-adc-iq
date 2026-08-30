@@ -1,10 +1,12 @@
 #ifndef __USB_ISTR_H
 #define __USB_ISTR_H
 
+#include <stdint.h>
+
 #include "usb_conf.h"
 
 void USB_Istr(void);
-uint32_t CDC_Send_DATA (uint8_t *ptrBuffer, uint8_t Send_length);
+uint32_t CDC_Send_DATA(uint8_t* ptrBuffer, uint8_t Send_length);
 uint32_t CDC_Receive_DATA(void);
 
 void EP1_IN_Callback(void);

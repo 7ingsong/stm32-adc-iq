@@ -1,42 +1,28 @@
-#include "usb_lib.h"
 #include "usbd.h"
+
+#include <misc.h>
+#include <stm32f10x.h>
+#include <stm32f10x_exti.h>
+
 #include "stm32f10x_gpio.h"
 #include "stm32f10x_rcc.h"
-#include <stm32f10x_exti.h>
-#include <misc.h>
-
-#define RCC_APB2Periph_ALLGPIO              (RCC_APB2Periph_GPIOA \
-                                              | RCC_APB2Periph_GPIOB \
-                                              | RCC_APB2Periph_GPIOC \
-                                              | RCC_APB2Periph_GPIOD \
-                                              | RCC_APB2Periph_GPIOE )
-
-#define USB_DISCONNECT                      GPIOB  
-#define USB_DISCONNECT_PIN                  GPIO_Pin_14
-#define RCC_APB2Periph_GPIO_DISCONNECT      RCC_APB2Periph_GPIOB
-
+#include "usb_lib.h"
+#include "utils.h"
 
 EXTI_InitTypeDef EXTI_InitStructure;
 
 __IO uint32_t bDeviceState = UNCONNECTED; /* USB device status */
 __IO uint32_t EP[8];
 
-struct
-{
+struct {
     __IO RESUME_STATE eState;
     __IO uint8_t bESOFcnt;
-}ResumeS;
+} ResumeS;
 
-__IO uint32_t remotewakeupon=0;
+__IO uint32_t remotewakeupon = 0;
 
-RESULT PowerOn(void)
-{
+RESULT PowerOn(void) {
     uint16_t wRegVal;
-
-#if !defined (USE_NUCLEO)
-    /*** cable plugged-in ? ***/
-    USB_Cable_Config(ENABLE);
-#endif
 
     /*** CNTR_PWDN = 0 ***/
     wRegVal = CNTR_FRES;
@@ -53,30 +39,25 @@ RESULT PowerOn(void)
     _SetCNTR(wInterrupt_Mask);
 
     /* Wait until RESET flag = 1 (polling) */
-    while((_GetISTR()&ISTR_RESET) == 1);
+    while ((_GetISTR() & ISTR_RESET) == 0);
 
     /*** Clear pending interrupts ***/
     SetISTR(0);
 
     /*** Set interrupt mask ***/
-    wInterrupt_Mask = CNTR_RESETM | CNTR_SUSPM | CNTR_WKUPM;
+    wInterrupt_Mask = IMR_MSK;
     _SetCNTR(wInterrupt_Mask);
 
     return USB_SUCCESS;
 }
 
-RESULT PowerOff()
-{
+RESULT PowerOff(void) {
     /* disable all interrupts and force USB reset */
     _SetCNTR(CNTR_FRES);
 
     /* clear interrupt status register */
     _SetISTR(0);
 
-#if !defined (USE_NUCLEO)
-    /* Disable the Pull-Up*/
-    USB_Cable_Config(DISABLE);
-#endif
     /* switch-off device */
     _SetCNTR(CNTR_FRES + CNTR_PDWN);
     /* sw variables reset */
@@ -85,9 +66,8 @@ RESULT PowerOff()
     return USB_SUCCESS;
 }
 
-void Suspend(void)
-{
-    uint32_t i =0;
+void Suspend(void) {
+    uint32_t i = 0;
     uint16_t wCNTR;
 
     /* suspend preparation */
@@ -99,29 +79,28 @@ void Suspend(void)
     /* This a sequence to apply a force RESET to handle a robustness case */
 
     /*Store endpoints registers status */
-    for (i=0;i<8;i++) EP[i] = _GetENDPOINT(i);
+    for (i = 0; i < 8; i++) EP[i] = _GetENDPOINT(i);
 
     /* unmask RESET flag */
-    wCNTR|=CNTR_RESETM;
+    wCNTR |= CNTR_RESETM;
     _SetCNTR(wCNTR);
 
     /*apply FRES */
-    wCNTR|=CNTR_FRES;
+    wCNTR |= CNTR_FRES;
     _SetCNTR(wCNTR);
 
     /*clear FRES*/
-    wCNTR&=~CNTR_FRES;
+    wCNTR &= ~CNTR_FRES;
     _SetCNTR(wCNTR);
 
     /*poll for RESET flag in ISTR*/
-    while((_GetISTR()&ISTR_RESET) == 0);
+    while ((_GetISTR() & ISTR_RESET) == 0);
 
     /* clear RESET flag in ISTR */
     _SetISTR((uint16_t)CLR_RESET);
 
     /*restore Enpoints*/
-    for (i=0;i<8;i++)
-        _SetENDPOINT(i, EP[i]);
+    for (i = 0; i < 8; i++) _SetENDPOINT(i, EP[i]);
 
     /* Now it is safe to enter macrocell in suspend mode */
     wCNTR |= CNTR_FSUSP;
@@ -133,8 +112,7 @@ void Suspend(void)
     _SetCNTR(wCNTR);
 }
 
-void Resume_Init(void)
-{
+void Resume_Init(void) {
     uint16_t wCNTR;
     /* restart the clocks */
     /* CNTR_LPMODE = 0 */
@@ -145,79 +123,62 @@ void Resume_Init(void)
     _SetCNTR(IMR_MSK);
 }
 
-void Resume(RESUME_STATE eResumeSetVal)
-{
+void Resume(RESUME_STATE eResumeSetVal) {
     uint16_t wCNTR;
 
-    if (eResumeSetVal != RESUME_ESOF)
-        ResumeS.eState = eResumeSetVal;
-    switch (ResumeS.eState)
-    {
+    if (eResumeSetVal != RESUME_ESOF) ResumeS.eState = eResumeSetVal;
+    switch (ResumeS.eState) {
         case RESUME_EXTERNAL:
-        if (remotewakeupon ==0)
-        {
-            Resume_Init();
-            ResumeS.eState = RESUME_OFF;
-        }
-        else /* RESUME detected during the RemoteWAkeup signalling => keep RemoteWakeup handling*/
-        {
-            ResumeS.eState = RESUME_ON;
-        }
-        break;
+            if (remotewakeupon == 0) {
+                Resume_Init();
+                ResumeS.eState = RESUME_OFF;
+            } else /* RESUME detected during the RemoteWAkeup signalling => keep RemoteWakeup
+                      handling*/
+            {
+                ResumeS.eState = RESUME_ON;
+            }
+            break;
         case RESUME_INTERNAL:
             Resume_Init();
             ResumeS.eState = RESUME_START;
             remotewakeupon = 1;
-        break;
+            break;
         case RESUME_LATER:
             ResumeS.bESOFcnt = 2;
             ResumeS.eState = RESUME_WAIT;
-        break;
+            break;
         case RESUME_WAIT:
             ResumeS.bESOFcnt--;
-            if (ResumeS.bESOFcnt == 0)
-                ResumeS.eState = RESUME_START;
-        break;
+            if (ResumeS.bESOFcnt == 0) ResumeS.eState = RESUME_START;
+            break;
         case RESUME_START:
             wCNTR = _GetCNTR();
             wCNTR |= CNTR_RESUME;
             _SetCNTR(wCNTR);
             ResumeS.eState = RESUME_ON;
             ResumeS.bESOFcnt = 10;
-        break;
+            break;
         case RESUME_ON:
             ResumeS.bESOFcnt--;
-            if (ResumeS.bESOFcnt == 0)
-            {
+            if (ResumeS.bESOFcnt == 0) {
                 wCNTR = _GetCNTR();
                 wCNTR &= (~CNTR_RESUME);
                 _SetCNTR(wCNTR);
                 ResumeS.eState = RESUME_OFF;
                 remotewakeupon = 0;
             }
-        break;
+            break;
         case RESUME_OFF:
         case RESUME_ESOF:
         default:
             ResumeS.eState = RESUME_OFF;
-        break;
+            break;
     }
 }
 
-void USB_Cable_Config(FunctionalState NewState)
-{
-    if (NewState != DISABLE)
-    {
-        GPIO_ResetBits(USB_DISCONNECT, USB_DISCONNECT_PIN);
-    }
-    else
-    {
-        GPIO_SetBits(USB_DISCONNECT, USB_DISCONNECT_PIN);
-    }
-}
+void USB_Cable_Config(FunctionalState NewState) { (void)NewState; }
 
-void USB_Interrupts_Config(void)
-{
+void USB_Interrupts_Config(void) {
     NVIC_InitTypeDef NVIC_InitStructure;
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
 
@@ -229,18 +190,25 @@ void USB_Interrupts_Config(void)
 
     NVIC_InitStructure.NVIC_IRQChannel = USBWakeUp_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
-    NVIC_Init(&NVIC_InitStructure);   
+    NVIC_Init(&NVIC_InitStructure);
 }
 
-void Set_USBClock(void)
-{
+void Set_USBClock(void) {
     RCC_USBCLKConfig(RCC_USBCLKSource_PLLCLK_1Div5);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_USB, ENABLE);
 }
 
-void Set_System(void){
-    GPIO_InitTypeDef  GPIO_InitStructure;  
+void Set_System(void) {
+    GPIO_InitTypeDef GPIO_InitStructure;
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    GPIO_ResetBits(GPIOA, GPIO_Pin_12);
+    delay_ms(10);
+
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11 | GPIO_Pin_12;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
