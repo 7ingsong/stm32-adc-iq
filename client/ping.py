@@ -1,9 +1,7 @@
-import argparse
-import pathlib
-import sys
 import time
-
+import struct
 import serial
+import socket
 from serial.tools import list_ports
 
 
@@ -118,6 +116,8 @@ class DeviceClient:
     def __init__(self, port, baudrate, timeout):
         self.serial = serial.Serial(port=port, baudrate=baudrate, timeout=timeout)
         self.seq = 1
+        self.queue_data = bytearray()
+        self.sock_udp = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 
     def close(self):
         self.serial.close()
@@ -225,6 +225,48 @@ class DeviceClient:
         print(f"frame seq={frame['seq']} length={len(frame['payload'])}")
         return frame["payload"]
 
+    def pop(self, n):
+        payload = self.queue_data[:n]
+        self.queue_data = self.queue_data[n:]
+        return payload
+
+    def get_size(self):
+        return len(self.queue_data)
+
+    def push(self, data):
+        self.queue_data.extend(data)
+
+    def conv2cf32(self, raw):
+        v0,=struct.unpack("<H",raw)
+        v = float(v0)/0x1000
+        v = v - 0.5
+        return struct.pack("<f", v)
+
+
+    def convert_all(self,data):
+        ls = []
+        n = len(data)//2
+        for i in range(n):
+            v=self.conv2cf32(data[2*i:2*i+2])
+            ls.append(v)
+        return b''.join(ls)
+
+
+    def process(self):
+        hdr = self.pop(8)
+        magic,cmd,seq,size,crc =struct.unpack("<2sBBHH", hdr)
+        if magic != FRAME_MAGIC:
+            raise ProtocolError(f"invalid magic: {magic.hex()}")
+
+        payload = self.pop(size)
+        crc_calc = frame_checksum(cmd, seq, payload)
+        if crc != crc_calc:
+            raise ProtocolError(f"invalid crc: {crc:04x} != {crc_calc:04x}")
+
+        print(f"frame seq={seq} length={len(payload)}")
+
+        return self.convert_all(payload)
+
 
 def main():
     port = auto_detect_port()
@@ -234,21 +276,16 @@ def main():
     try:
         resp = client.ping()
         print(f"Ping response: {resp.decode()}")
-
-        f = open("iq_samples.bin", "wb")
+        f = open ("samples.cf32","wb+")
         while True:
             data = client.serial.read(2048*10)
-            f.write(data)
-            f.flush()
-            print(f"response: {len(data)} bytes")
+            client.push(data)
+            while client.get_size() >= (0x108*2):
+                iq = client.process()
+                f.write(iq)
+                f.flush()
+                client.sock_udp.sendto(iq, ("127.0.0.1",2000))
 
-
-        # while True:
-        #     try:
-        #         payload = client.get_iq_samples()
-        #         print(f"IQ samples: {len(payload)} bytes")
-        #     except Exception as e:
-        #         print(f"Error while getting IQ samples: {e}")
     finally:
         client.close()
 
