@@ -19,7 +19,7 @@ typedef struct __attribute__((packed)) {
     uint32_t tx;
 } iq_stream_response_t;
 
-static iq_stream_response_t g_resp = {
+iq_stream_response_t g_resp = {
     .overflow = 0,
     .tx = 0,
 };
@@ -39,28 +39,6 @@ static volatile uint8_t g_iq_pending_mask_rx = 0;
 
 uint16_t g_adc_samples[ADC_N_SAMPLES*2];
 
-void handle_iq_stream(const frame_t* frame) {
-    if (frame->command.len != 1) {
-        command_send_error(frame->command.seq, ERR_BAD_PAYLOAD, frame->command.len);
-        return;
-    }
-
-    if (frame->payload[0] == 0) {
-        // iq_stop();
-        return;
-    } else if (frame->payload[0] == 1) {
-        // iq_start();
-        return;
-    } else if (frame->payload[0] == 2) {
-    } else {
-        command_send_error(frame->command.seq, ERR_BAD_PAYLOAD, frame->payload[0]);
-        return;
-    }
-
-    g_resp.overflow = transport_get_tx_overflow();
-    command_send(RESP_IQ_STREAM, frame->command.seq, (uint8_t*)&g_resp, sizeof(g_resp));
-}
-
 
 void DMA1_Channel1_IRQHandler(void){
     if (DMA_GetITStatus(DMA1_IT_HT1)) {
@@ -75,7 +53,7 @@ void DMA1_Channel1_IRQHandler(void){
     }
 }
 
-static void send_iq_data(const uint8_t* data, uint16_t len) {
+void send_iq_data(const uint8_t* data, uint16_t len) {
     int k = len / FRAME_MAX_PAYLOAD;
     for (int i = 0; i < k; i++) {
         command_send(RESP_IQ_DATA, s_iq_usb_stream_seq++, &data[i * FRAME_MAX_PAYLOAD],
@@ -109,7 +87,7 @@ void iq_dispatch(void) {
     }
 
     if (mask_rx & IQ_PENDING_HALF1) {
-        OnADC(&g_adc_samples[sizeof(g_adc_samples)/2], ADC_N_SAMPLES);
+        OnADC(&g_adc_samples[ADC_N_SAMPLES], ADC_N_SAMPLES);
         led_control(0);
     }
 }
@@ -138,8 +116,8 @@ void ADC1_Init(){
     ADC_InitStructure.ADC_NbrOfChannel = 2;
     ADC_Init(ADC1, &ADC_InitStructure);
 
-    ADC_RegularChannelConfig(ADC1, ADC_Channel_4, 1, ADC_SampleTime_239Cycles5);//ADC_SampleTime_71Cycles5);
-    ADC_RegularChannelConfig(ADC1, ADC_Channel_5, 2, ADC_SampleTime_239Cycles5);//ADC_SampleTime_71Cycles5);
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_4, 1, ADC_SampleTime_71Cycles5);//ADC_SampleTime_71Cycles5);
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_5, 2, ADC_SampleTime_71Cycles5);//ADC_SampleTime_71Cycles5);
 
     ADC_DMACmd(ADC1, ENABLE);
     ADC_Cmd(ADC1, ENABLE);
@@ -158,7 +136,7 @@ void DMA1_Init(){
     DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&ADC1->DR;
     DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)&g_adc_samples[0];
     DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
-    DMA_InitStructure.DMA_BufferSize = sizeof(g_adc_samples);
+    DMA_InitStructure.DMA_BufferSize = ADC_N_SAMPLES * 2;
     DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
     DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
     DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;

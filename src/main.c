@@ -14,12 +14,6 @@ void command_handler(const frame_t* frame) {
         case CMD_PING:
             handle_ping(frame);
             break;
-        // case CMD_IQ_STREAM:
-        //     handle_iq_stream(frame);
-            // break;
-        // case CMD_IQ_STREAM_TX:
-        //     handle_iq_stream_tx(frame);
-        //     break;
         default:
             command_send_error(frame->command.seq, ERR_BAD_COMMAND, frame->command.cmd);
             break;

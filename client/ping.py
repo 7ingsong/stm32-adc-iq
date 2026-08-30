@@ -221,7 +221,6 @@ def main():
     try:
         resp = client.ping()
         print(f"Ping response: {resp.decode()}")
-        
     finally:
         client.close()
 
