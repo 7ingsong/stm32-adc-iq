@@ -37,7 +37,7 @@ blocks:
   id: variable
   parameters:
     comment: ''
-    value: '71428'
+    value: '88235'
   states:
     bus_sink: false
     bus_source: false
@@ -187,7 +187,7 @@ blocks:
     maxoutbuf: '0'
     minoutbuf: '0'
     notify_missed: 'False'
-    payloadsize: '512'
+    payloadsize: 512*2
     port: '2000'
     src_zeros: 'False'
     type: complex

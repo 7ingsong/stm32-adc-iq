@@ -284,6 +284,8 @@ def main():
                 iq = client.process()
                 f.write(iq)
                 f.flush()
+
+                # print(f"iq length={len(iq)}")
                 client.sock_udp.sendto(iq, ("127.0.0.1",2000))
 
     finally:

@@ -6,7 +6,7 @@
 #define FRAME_MAGIC_1 0x5A
 #define PACKAGE_HEADER_SIZE 8
 #define FRAME_HEADER_SIZE 6
-#define FRAME_MAX_PAYLOAD 256
+#define FRAME_MAX_PAYLOAD 512 //256
 
 enum {
     CMD_PING = 0x01,

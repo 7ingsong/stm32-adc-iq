@@ -84,7 +84,6 @@ static void parser_reset() {
 void command_dispatch(const dispatch_frame_t dispatch_frame) {
     uint8_t data;
 
-    //__disable_irq();
     if (usb_rx_overflow != transport_get_rx_overflow()) {
         command_send_error(0, ERR_FIFO_OVERFLOW, 0);
         usb_rx_overflow = transport_get_rx_overflow();
@@ -151,7 +150,6 @@ void command_dispatch(const dispatch_frame_t dispatch_frame) {
                 break;
         }
     }
-    //__enable_irq();
 }
 
 uint16_t checksum16(uint16_t init, uint8_t* data, int length) {
