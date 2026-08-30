@@ -48,6 +48,7 @@ void command_send(uint8_t resp_cmd, uint8_t seq, const uint8_t* payload, uint16_
         return;
     }
 
+    // __disable_irq();
     uint16_t crc = frame_checksum(resp_cmd, seq, len, payload);
 
     pkt.magic0 = FRAME_MAGIC_0;
@@ -60,6 +61,7 @@ void command_send(uint8_t resp_cmd, uint8_t seq, const uint8_t* payload, uint16_
     if (len > 0) {
         memcpy(pkt.frame.payload, payload, len);
     }
+    // __enable_irq();
 
     transport_send((uint8_t*)&pkt, PACKAGE_HEADER_SIZE + len);
 }

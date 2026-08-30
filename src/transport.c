@@ -4,6 +4,8 @@
 #include "misc.h"
 #include "usb_istr.h"
 #include "usbd.h"
+#include "utils.h"
+
 uint8_t usb_tx_buffer[USB_TX_FIFO_SIZE];
 uint8_t usb_rx_buffer[USB_RX_FIFO_SIZE];
 
@@ -13,10 +15,17 @@ fifo_t usb_rx;
 int usb_connected;
 int usb_transmitting;
 
+static int toggle2 = 0;
+
 void OnUsbTransmitted() {
+    led2_control(toggle2);
+    toggle2 ^= 1;
+
     uint8_t usb_buf[MAX_USB_PACKET_SIZE];
     usb_transmitting = 0;
+    // __disable_irq();
     int n = fifo_read(&usb_tx, usb_buf, sizeof(usb_buf));
+    // __enable_irq();
     if (n > 0) {
         usb_transmitting = 1;
         CDC_Send_DATA(usb_buf, n);
@@ -24,7 +33,9 @@ void OnUsbTransmitted() {
 }
 
 void OnUsbReceived(uint8_t* buf, int n) {
+    // __disable_irq();
     fifo_write(&usb_rx, buf, n);
+    // __enable_irq();
 }
 
 void OnUsbUnconnected() { usb_connected = 0; }
@@ -57,7 +68,9 @@ void transport_init(void) {
 }
 
 int transport_recv(uint8_t* buf, int max_len) {
+    // __disable_irq();
     int n = fifo_read(&usb_rx, buf, max_len);
+    // __enable_irq();
     return n;
 }
 uint32_t transport_get_rx_overflow(void) { return fifo_get_overflow(&usb_rx); }

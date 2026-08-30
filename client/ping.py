@@ -9,7 +9,7 @@ from serial.tools import list_ports
 
 FRAME_MAGIC = b"\xA5\x5A"
 FRAME_HEADER_SIZE = 8
-FRAME_MAX_PAYLOAD = 55
+FRAME_MAX_PAYLOAD = 2048
 
 CMD_PING = 0x01
 CMD_IQ_STREAM = 0x30
@@ -163,9 +163,8 @@ class DeviceClient:
             calc_crc = frame_checksum(cmd, seq, payload)
             if calc_crc != crc:
                 raise ProtocolError(
-                    f"CRC mismatch: got 0x{crc:04X}, expected 0x{calc_crc:04X}"
+                    f"CRC mismatch: got 0x{crc:04X}, expected 0x{calc_crc:04X}, seq={seq}"
                 )
-
             return {"cmd": cmd, "seq": seq, "payload": payload}
 
     def req_command(self, cmd, cmd_resp=RESP_ACK, payload=bytes()):
@@ -212,6 +211,20 @@ class DeviceClient:
     def get_iq_stream_status(self):
         return self.set_iq_stream_mode(2)
 
+    def get_iq_samples(self, timeout=5.0):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                frame = self.read_frame()
+            except TimeoutError:
+                continue
+
+        if frame["cmd"] != RESP_IQ_DATA:
+            raise ProtocolError(f"unexpected response 0x{frame['cmd']:02X}")
+
+        print(f"frame seq={frame['seq']} length={len(frame['payload'])}")
+        return frame["payload"]
+
 
 def main():
     port = auto_detect_port()
@@ -221,6 +234,21 @@ def main():
     try:
         resp = client.ping()
         print(f"Ping response: {resp.decode()}")
+
+        f = open("iq_samples.bin", "wb")
+        while True:
+            data = client.serial.read(2048*10)
+            f.write(data)
+            f.flush()
+            print(f"response: {len(data)} bytes")
+
+
+        # while True:
+        #     try:
+        #         payload = client.get_iq_samples()
+        #         print(f"IQ samples: {len(payload)} bytes")
+        #     except Exception as e:
+        #         print(f"Error while getting IQ samples: {e}")
     finally:
         client.close()
 

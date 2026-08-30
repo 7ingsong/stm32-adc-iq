@@ -43,6 +43,7 @@ uint32_t get_ticks_ms(){
 }
 
 void led_init() {
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
 
     GPIO_InitTypeDef GPIO_InitStructure;
@@ -51,7 +52,17 @@ void led_init() {
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
+
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+
     GPIO_WriteBit(GPIOB, MCU_LED, 0);
+    GPIO_WriteBit(GPIOA, GPIO_Pin_6, 0);
 }
 
 void led_control(int on) { GPIO_WriteBit(GPIOB, MCU_LED, on); }
+
+void led2_control(int on) { GPIO_WriteBit(GPIOA, GPIO_Pin_6, on); }
+

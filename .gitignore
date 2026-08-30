@@ -3,3 +3,4 @@ build
 *.u12
 *.u16
 *.cf32
+.bin

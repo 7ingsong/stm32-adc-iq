@@ -66,10 +66,13 @@ void send_iq_data(const uint8_t* data, uint16_t len) {
     }
 }
 
+static int toggle = 0;
+
 __attribute__((weak)) void OnADC(uint16_t *buf, int n){
-    // __disable_irq();
+    led_control(toggle);
+    toggle^=1;
+
     send_iq_data((const uint8_t*)buf, n*2);
-    // __enable_irq();
 }
 
 void iq_dispatch(void) {
@@ -83,12 +86,10 @@ void iq_dispatch(void) {
 
     if (mask_rx & IQ_PENDING_HALF0) {
         OnADC(&g_adc_samples[0], ADC_N_SAMPLES);
-        led_control(1);
     }
 
     if (mask_rx & IQ_PENDING_HALF1) {
         OnADC(&g_adc_samples[ADC_N_SAMPLES], ADC_N_SAMPLES);
-        led_control(0);
     }
 }
 
@@ -151,10 +152,10 @@ void DMA1_Init(){
 }
 
 void NVIC_DMA1_Init(void){
-    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
+    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_3);
     NVIC_InitTypeDef nvic;
     nvic.NVIC_IRQChannel = DMA1_Channel1_IRQn;
-    nvic.NVIC_IRQChannelPreemptionPriority = 0;
+    nvic.NVIC_IRQChannelPreemptionPriority = 3;
     nvic.NVIC_IRQChannelSubPriority = 0;
     nvic.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&nvic);
