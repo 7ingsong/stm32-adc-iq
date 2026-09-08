@@ -8,11 +8,9 @@
 #include "misc.h"
 #include "utils.h"
 
-DAC_InitTypeDef DAC_InitStructure;
-DMA_InitTypeDef DMA_InitStructure;
-
-TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
-
+static DMA_InitTypeDef DMA_InitStructure;
+static TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
+static DAC_InitTypeDef DAC_InitStructure;
 
 #define DAC_DHR12RD_Address 0x40007420
 static uint32_t Idx = 0;  
@@ -30,12 +28,12 @@ static const uint16_t Sine12bit[32] = {
 static uint32_t DualSine12bit[32];
 
 void DMA2_Channel4_5_IRQHandler(void) {
-    if (DMA_GetITStatus(DMA2_IT_HT4)) {// != RESET
+    if (DMA_GetITStatus(DMA2_IT_HT4)!= RESET) {
         led_control(1);
         DMA_ClearITPendingBit(DMA2_IT_HT4);        
     }
 
-    if (DMA_GetITStatus(DMA2_IT_TC4)) { // != RESET
+    if (DMA_GetITStatus(DMA2_IT_TC4)!= RESET) {
         led_control(0);
         DMA_ClearITPendingBit(DMA2_IT_TC4);
     }
@@ -57,23 +55,26 @@ void dac_init() {
     GPIO_InitStructure.GPIO_Pin =  GPIO_Pin_4 | GPIO_Pin_5;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
-    
+
+       
     NVIC_InitTypeDef NVIC_InitStructure;
     NVIC_InitStructure.NVIC_IRQChannel = DMA2_Channel4_5_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_Init(&NVIC_InitStructure);
+    NVIC_Init(&NVIC_InitStructure);    
 
+    
     TIM_TimeBaseStructInit(&TIM_TimeBaseStructure); 
-    TIM_TimeBaseStructure.TIM_Period = 1000-1; // FIX!!!
-    TIM_TimeBaseStructure.TIM_Prescaler = 72-1;
+    TIM_TimeBaseStructure.TIM_Period = 10-1; // FIX!!!
+    TIM_TimeBaseStructure.TIM_Prescaler = 3-1;//9-1;
     TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;    
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;  
     TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
 
     TIM_SelectOutputTrigger(TIM2, TIM_TRGOSource_Update);
 
+    
     DAC_InitStructure.DAC_Trigger = DAC_Trigger_T2_TRGO;
     DAC_InitStructure.DAC_WaveGeneration = DAC_WaveGeneration_None;
     DAC_InitStructure.DAC_OutputBuffer = DAC_OutputBuffer_Disable;
@@ -94,12 +95,8 @@ void dac_init() {
     DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
     DMA_Init(DMA2_Channel4, &DMA_InitStructure);
 
-    
-    
     DMA_ITConfig(DMA2_Channel4, DMA_IT_HT | DMA_IT_TC, ENABLE);
     
-
-
     DMA_Cmd(DMA2_Channel4, ENABLE);
 
     DAC_Cmd(DAC_Channel_1, ENABLE);
