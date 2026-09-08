@@ -8,42 +8,45 @@
 #include "misc.h"
 #include "utils.h"
 
+#define IQ_PENDING_HALF0 0x01
+#define IQ_PENDING_HALF1 0x02
+
 static DMA_InitTypeDef DMA_InitStructure;
 static TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
 static DAC_InitTypeDef DAC_InitStructure;
 
-#define DAC_DHR12RD_Address 0x40007420
-static uint32_t Idx = 0;  
-static const uint16_t Sine12bit[32] = {
+[[maybe_unused]] static uint32_t idx = 0;  
+[[maybe_unused]] static const uint16_t sine_12bit[DAC_N_SAMPLES] = {
                       2047, 2447, 2831, 3185, 3498, 3750, 3939, 4056, 4095, 4056,
                       3939, 3750, 3495, 3185, 2831, 2447, 2047, 1647, 1263, 909, 
                       599, 344, 155, 38, 0, 38, 155, 344, 599, 909, 1263, 1647};
 
-// static const uint16_t Sine12bit[32] = {
-//                       4095, 4095, 4095, 4095, 4095, 4095, 4095, 4095,
-//                       4095, 4095, 4095, 4095, 4095, 4095, 4095, 4095,
-//                       0,    0,    0,    0,    0,    0,    0,    0,
-//                       0,    0,    0,    0,    0,    0,    0,    0};
 
-static uint32_t DualSine12bit[32];
+[[maybe_unused]] static uint32_t samples[DAC_N_SAMPLES];
+
+static volatile uint8_t pending_mask = 0;
+
+__attribute__((weak)) void on_dac(uint32_t *buf, int n) {
+}
+
 
 void DMA2_Channel4_5_IRQHandler(void) {
     if (DMA_GetITStatus(DMA2_IT_HT4)!= RESET) {
-        led_control(1);
+        pending_mask |= IQ_PENDING_HALF0;
         DMA_ClearITPendingBit(DMA2_IT_HT4);        
     }
 
     if (DMA_GetITStatus(DMA2_IT_TC4)!= RESET) {
         led_control(0);
+        pending_mask |= IQ_PENDING_HALF1;
         DMA_ClearITPendingBit(DMA2_IT_TC4);
     }
 }
 
 void dac_init() {
-    for (Idx = 0; Idx < 32; Idx++) {
-        DualSine12bit[Idx] = (Sine12bit[Idx] << 16) + (Sine12bit[Idx]);
+    for (idx = 0; idx < DAC_N_SAMPLES; idx++) {
+        samples[idx] = (sine_12bit[idx] << 16) + (sine_12bit[idx]);
     }
-
 
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA2, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
@@ -66,8 +69,8 @@ void dac_init() {
 
     
     TIM_TimeBaseStructInit(&TIM_TimeBaseStructure); 
-    TIM_TimeBaseStructure.TIM_Period = 10-1; // FIX!!!
-    TIM_TimeBaseStructure.TIM_Prescaler = 3-1;//9-1;
+    TIM_TimeBaseStructure.TIM_Period = 1000-1; // FIX!!!
+    TIM_TimeBaseStructure.TIM_Prescaler = 1-1;//9-1;
     TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;    
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;  
     TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
@@ -83,9 +86,9 @@ void dac_init() {
 
     DMA_DeInit(DMA2_Channel4);
     DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&(DAC->DHR12RD);
-    DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)DualSine12bit;
+    DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)samples;
     DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralDST;
-    DMA_InitStructure.DMA_BufferSize = 32;
+    DMA_InitStructure.DMA_BufferSize = DAC_N_SAMPLES;
     DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
     DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
     DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Word;
@@ -106,6 +109,23 @@ void dac_init() {
     TIM_Cmd(TIM2, ENABLE);
 }
 
-void dac_process() {
-    while (1){}
+void dac_dispatch() {
+
+    uint8_t mask;
+
+    __disable_irq();
+    mask = pending_mask;
+    pending_mask = 0;
+    __enable_irq();
+
+
+    if (mask & IQ_PENDING_HALF0) {
+        led_control(1);
+        on_dac(&samples[0], DAC_N_SAMPLES/2);
+    }
+
+    if (mask & IQ_PENDING_HALF1) {
+        led_control(0);
+        on_dac(&samples[DAC_N_SAMPLES/2], DAC_N_SAMPLES/2);
+    }
 }
