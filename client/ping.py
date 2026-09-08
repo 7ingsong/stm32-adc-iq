@@ -263,7 +263,7 @@ class DeviceClient:
         if crc != crc_calc:
             raise ProtocolError(f"invalid crc: {crc:04x} != {crc_calc:04x}")
 
-        print(f"frame seq={seq} length={len(payload)}")
+        #print(f"frame seq={seq} length={len(payload)}")
 
         return self.convert_all(payload)
 

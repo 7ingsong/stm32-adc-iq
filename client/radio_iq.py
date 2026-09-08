@@ -70,7 +70,7 @@ class radio_iq(gr.top_block, Qt.QWidget):
         ##################################################
         self.values_freq = values_freq = 0
         self.samp_rate2 = samp_rate2 = 48e3
-        self.samp_rate = samp_rate = 71428
+        self.samp_rate = samp_rate = 88235
 
         ##################################################
         # Blocks
@@ -127,7 +127,7 @@ class radio_iq(gr.top_block, Qt.QWidget):
             flt_size=32,
             atten=100)
         self.pfb_arb_resampler_xxx_0.declare_sample_delay(0)
-        self.network_udp_source_0 = network.udp_source(gr.sizeof_gr_complex, 1, 2000, 0, 512, False, False, False)
+        self.network_udp_source_0 = network.udp_source(gr.sizeof_gr_complex, 1, 2000, 0, (512*2), False, False, False)
         self.low_pass_filter_0 = filter.fir_filter_ccf(
             1,
             firdes.low_pass(

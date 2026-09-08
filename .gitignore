@@ -4,4 +4,3 @@ build
 *.u16
 *.cf32
 *.bin
-radio_iq.py

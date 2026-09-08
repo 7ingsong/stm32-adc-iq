@@ -3,6 +3,7 @@
 #include "transport.h"
 #include "utils.h"
 #include "command.h"
+#include "dac.h"
 
 static void handle_ping(const frame_t* frame) {
     uint8_t payload[]={'P','O','N','G'};
@@ -22,16 +23,25 @@ void command_handler(const frame_t* frame) {
 
 int main() {
     clock_init();
-    transport_init();
     led_init();
+    // transport_init();
     
-    ADC1_DMA1_Init();
-
-    led_control(1);
+    
+    // ADC1_DMA1_Init();
+    dac_init();
+    
+    // led_control(1);
     while (1){
-        command_dispatch(command_handler);
-        iq_dispatch();
+        
+        // delay_ms(1000);
     }
+    // dac_process();
+
+    // led_control(1);
+    // while (1){
+    //     command_dispatch(command_handler);
+    //     iq_dispatch();
+    // }
 
     return 0;
 }
