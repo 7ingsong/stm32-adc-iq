@@ -7,5 +7,5 @@ uint32_t get_ticks_ms();
 void clock_init();
 void led_init();
 void led_control(int on);
-void led2_control(int on);
+
 #endif

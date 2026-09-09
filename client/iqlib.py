@@ -11,11 +11,13 @@ FRAME_MAX_PAYLOAD = 2048
 
 CMD_PING = 0x01
 CMD_IQ_STREAM = 0x30
+CMD_IQ_STREAM_TX = 0x31
 
 RESP_ACK = 0x80
 RESP_ERR = 0x81
 RESP_IQ_STREAM = 0xB0
 RESP_IQ_DATA = 0xB1
+RESP_IQ_STREAM_TX = 0xB2
 
 ERR_NAMES = {
     1: "ERR_BAD_MAGIC",
@@ -202,6 +204,11 @@ class DeviceClient:
     def ping(self):
         return self.req_command(CMD_PING, cmd_resp=RESP_ACK)
 
+    def send_iq(self, payload=bytes()):
+        resp = self.req_command(CMD_IQ_STREAM_TX, cmd_resp=RESP_IQ_STREAM_TX, payload=payload)
+        request_size, overflow, tx_usb_overflow, rx_usb_overflow = struct.unpack("<IIII", resp)
+        return request_size, overflow, tx_usb_overflow, rx_usb_overflow
+
     def set_iq_stream_mode(self, mode):
         return self.req_command(CMD_IQ_STREAM, cmd_resp=RESP_IQ_STREAM, payload=bytes((mode,)))
 
@@ -267,30 +274,5 @@ class DeviceClient:
 
         return self.convert_all(payload)
 
-
-def main():
-    port = auto_detect_port()
-    print(f"Using port {port}")
-    client = DeviceClient(port=port, baudrate=50000000, timeout=3.0)
-
-    try:
-        resp = client.ping()
-        print(f"Ping response: {resp.decode()}")
-        f = open ("samples.cf32","wb+")
-        while True:
-            data = client.serial.read(2048*10)
-            client.push(data)
-            while client.get_size() >= (0x108*2):
-                iq = client.process()
-                f.write(iq)
-                f.flush()
-
-                # print(f"iq length={len(iq)}")
-                client.sock_udp.sendto(iq, ("127.0.0.1",2000))
-
-    finally:
-        client.close()
-
-
 if __name__ == "__main__":
-    main()
+    pass

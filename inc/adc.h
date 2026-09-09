@@ -4,7 +4,7 @@
 
 #define ADC_N_SAMPLES (9*1024)
 
-void ADC1_DMA1_Init();
-void OnADC(uint16_t *, int);
-void iq_dispatch();
+void adc_init();
+void on_adc(uint16_t *, int);
+void adc_dispatch();
 #endif

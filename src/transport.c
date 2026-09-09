@@ -18,7 +18,6 @@ int usb_transmitting;
 static int toggle2 = 0;
 
 void OnUsbTransmitted() {
-    led2_control(toggle2);
     toggle2 ^= 1;
 
     uint8_t usb_buf[MAX_USB_PACKET_SIZE];

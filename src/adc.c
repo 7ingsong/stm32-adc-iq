@@ -14,82 +14,44 @@
 #include "transport.h"
 #include "utils.h"
 
-typedef struct __attribute__((packed)) {
-    uint32_t overflow;
-    uint32_t tx;
-} iq_stream_response_t;
-
-iq_stream_response_t g_resp = {
-    .overflow = 0,
-    .tx = 0,
-};
-
-typedef struct __attribute__((packed)) {
-    uint32_t request_size;
-    uint32_t overflow;
-    uint32_t tx_usb_overflow;
-    uint32_t rx_usb_overflow;
-} iq_stream_tx_response_t;
-
-
 #define IQ_PENDING_HALF0 0x01
 #define IQ_PENDING_HALF1 0x02
-static uint8_t s_iq_usb_stream_seq = 0;
-static volatile uint8_t g_iq_pending_mask_rx = 0;
 
-uint16_t g_adc_samples[ADC_N_SAMPLES*2];
+static volatile uint8_t pending_mask = 0;
+
+static uint16_t samples[ADC_N_SAMPLES*2];
 
 
 void DMA1_Channel1_IRQHandler(void){
     if (DMA_GetITStatus(DMA1_IT_HT1)) {
-        g_iq_pending_mask_rx |= IQ_PENDING_HALF0;
+        pending_mask |= IQ_PENDING_HALF0;
         DMA_ClearITPendingBit(DMA1_IT_HT1);
-        
     }
 
     if (DMA_GetITStatus(DMA1_IT_TC1)) {
-        g_iq_pending_mask_rx |= IQ_PENDING_HALF1;
+        pending_mask |= IQ_PENDING_HALF1;
         DMA_ClearITPendingBit(DMA1_IT_TC1);
     }
 }
 
-void send_iq_data(const uint8_t* data, uint16_t len) {
-    int k = len / FRAME_MAX_PAYLOAD;
-    for (int i = 0; i < k; i++) {
-        command_send(RESP_IQ_DATA, s_iq_usb_stream_seq++, &data[i * FRAME_MAX_PAYLOAD],
-                     FRAME_MAX_PAYLOAD);
-    }
+__attribute__((weak)) void on_adc(uint16_t *buf, int n){}
 
-    if (len % FRAME_MAX_PAYLOAD) {
-        command_send(RESP_IQ_DATA, s_iq_usb_stream_seq++, &data[k * FRAME_MAX_PAYLOAD],
-                     len % FRAME_MAX_PAYLOAD);
-    }
-}
 
-static int toggle = 0;
-
-__attribute__((weak)) void OnADC(uint16_t *buf, int n){
-    led_control(toggle);
-    toggle^=1;
-
-    send_iq_data((const uint8_t*)buf, n*2);
-}
-
-void iq_dispatch(void) {
+void adc_dispatch(void) {
     uint8_t mask_rx;
 
     __disable_irq();
-    mask_rx = g_iq_pending_mask_rx;
-    g_iq_pending_mask_rx = 0;
+    mask_rx = pending_mask;
+    pending_mask = 0;
     __enable_irq();
 
 
     if (mask_rx & IQ_PENDING_HALF0) {
-        OnADC(&g_adc_samples[0], ADC_N_SAMPLES);
+        on_adc(&samples[0], ADC_N_SAMPLES);
     }
 
     if (mask_rx & IQ_PENDING_HALF1) {
-        OnADC(&g_adc_samples[ADC_N_SAMPLES], ADC_N_SAMPLES);
+        on_adc(&samples[ADC_N_SAMPLES], ADC_N_SAMPLES);
     }
 }
 
@@ -100,11 +62,11 @@ void ADC1_Init(){
 
     GPIO_InitTypeDef GPIO_InitStructure;
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
 
@@ -117,8 +79,8 @@ void ADC1_Init(){
     ADC_InitStructure.ADC_NbrOfChannel = 2;
     ADC_Init(ADC1, &ADC_InitStructure);
 
-    ADC_RegularChannelConfig(ADC1, ADC_Channel_4, 1, ADC_SampleTime_55Cycles5);
-    ADC_RegularChannelConfig(ADC1, ADC_Channel_5, 2, ADC_SampleTime_55Cycles5);
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_6, 1, ADC_SampleTime_55Cycles5);
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_7, 2, ADC_SampleTime_55Cycles5);
 
     ADC_DMACmd(ADC1, ENABLE);
     ADC_Cmd(ADC1, ENABLE);
@@ -135,7 +97,7 @@ void DMA1_Init(){
     DMA_InitTypeDef DMA_InitStructure;
     DMA_DeInit(DMA1_Channel1);
     DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&ADC1->DR;
-    DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)&g_adc_samples[0];
+    DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)&samples[0];
     DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
     DMA_InitStructure.DMA_BufferSize = ADC_N_SAMPLES * 2;
     DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
@@ -161,7 +123,7 @@ void NVIC_DMA1_Init(void){
     NVIC_Init(&nvic);
 }
 
-void ADC1_DMA1_Init(){
+void adc_init(){
     NVIC_DMA1_Init();
     DMA1_Init();
     ADC1_Init();

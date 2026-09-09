@@ -37,7 +37,6 @@ void DMA2_Channel4_5_IRQHandler(void) {
     }
 
     if (DMA_GetITStatus(DMA2_IT_TC4)!= RESET) {
-        led_control(0);
         pending_mask |= IQ_PENDING_HALF1;
         DMA_ClearITPendingBit(DMA2_IT_TC4);
     }
@@ -120,12 +119,10 @@ void dac_dispatch() {
 
 
     if (mask & IQ_PENDING_HALF0) {
-        led_control(1);
         on_dac(&samples[0], DAC_N_SAMPLES/2);
     }
 
     if (mask & IQ_PENDING_HALF1) {
-        led_control(0);
         on_dac(&samples[DAC_N_SAMPLES/2], DAC_N_SAMPLES/2);
     }
 }
