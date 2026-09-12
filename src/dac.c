@@ -15,11 +15,11 @@ static DMA_InitTypeDef DMA_InitStructure;
 static TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
 static DAC_InitTypeDef DAC_InitStructure;
 
-[[maybe_unused]] static uint32_t idx = 0;  
-[[maybe_unused]] static const uint16_t sine_12bit[DAC_N_SAMPLES] = {
-                      2047, 2447, 2831, 3185, 3498, 3750, 3939, 4056, 4095, 4056,
-                      3939, 3750, 3495, 3185, 2831, 2447, 2047, 1647, 1263, 909, 
-                      599, 344, 155, 38, 0, 38, 155, 344, 599, 909, 1263, 1647};
+// [[maybe_unused]] static uint32_t idx = 0;  
+// [[maybe_unused]] static const uint16_t sine_12bit[DAC_N_SAMPLES] = {
+//                       2047, 2447, 2831, 3185, 3498, 3750, 3939, 4056, 4095, 4056,
+//                       3939, 3750, 3495, 3185, 2831, 2447, 2047, 1647, 1263, 909, 
+//                       599, 344, 155, 38, 0, 38, 155, 344, 599, 909, 1263, 1647};
 
 
 [[maybe_unused]] static uint32_t samples[DAC_N_SAMPLES];
@@ -68,7 +68,7 @@ void dac_init() {
 
     
     TIM_TimeBaseStructInit(&TIM_TimeBaseStructure); 
-    TIM_TimeBaseStructure.TIM_Period = 10-1; // FIX!!!
+    TIM_TimeBaseStructure.TIM_Period = 720-1; // FIX!!!
     TIM_TimeBaseStructure.TIM_Prescaler = 1-1;//9-1;
     TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;    
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;  

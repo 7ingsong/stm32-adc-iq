@@ -26,17 +26,9 @@ static usb_stream_info_t resp_iq_stream_tx_info = {
 };
 
 static fifo_t fifo_dac;
-static uint8_t fifo_buffer_dac[1024*10+1];//DAC_N_SAMPLES * 4 * 2 + 1];
-
-
-[[maybe_unused]]static const uint16_t sine_12bit[DAC_N_SAMPLES] = {
-                      2047, 2447, 2831, 3185, 3498, 3750, 3939, 4056, 4095, 4056,
-                      3939, 3750, 3495, 3185, 2831, 2447, 2047, 1647, 1263, 909, 
-                      599, 344, 155, 38, 0, 38, 155, 344, 599, 909, 1263, 1647};
+static uint8_t fifo_buffer_dac[1024*10+1];
 
 [[maybe_unused]]static uint8_t half = 0;
-
-[[maybe_unused]] static uint32_t dual_sine_12bit[DAC_N_SAMPLES];
 
 
 void send_iq_data(const uint8_t* data, uint16_t len) {
@@ -91,9 +83,9 @@ void on_dac(uint32_t *buf, int n) {
 void iq_init() {
     fifo_init(&fifo_dac, (uint8_t*)fifo_buffer_dac, sizeof(fifo_buffer_dac));
 
-    for (int idx = 0; idx < DAC_N_SAMPLES; idx++) {
-        dual_sine_12bit[idx] = (sine_12bit[idx] << 16) + (sine_12bit[idx]);
-    }
+    // for (int idx = 0; idx < DAC_N_SAMPLES; idx++) {
+    //     dual_sine_12bit[idx] = (sine_12bit[idx] << 16) + (sine_12bit[idx]);
+    // }
 }
 
 static void handle_ping(const frame_t* frame) {

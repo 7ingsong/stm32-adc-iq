@@ -1,6 +1,41 @@
 from iqlib import DeviceClient, auto_detect_port
 
 import math
+import socket
+import numpy as np
+
+def cf32_bytes_to_u12(data: bytes) -> bytes:
+    """
+    data: bytes, содержащие interleaved float32 I,Q,I,Q,... (cf32)
+    return: bytes, где каждый I и Q представлен как unsigned 12-bit
+            значение, упакованное в 2 байта (little-endian, старшие 4 бита = 0)
+    """
+    # интерпретируем сырые байты как float32
+    f32 = np.frombuffer(data, dtype='<f4')  # little-endian float32
+
+    if f32.size % 2 != 0:
+        raise ValueError("Количество float32 значений должно быть чётным (I,Q пары)")
+
+    # clip к [-1.0, 1.0]
+    clipped = np.clip(f32, -1.0, 1.0)
+
+    # [-1,1] -> [0,4095], 0.0 -> 2048
+    u12 = np.rint(clipped * 2047.0 + 2048.0).astype(np.int32)
+    u12 = np.clip(u12, 0, 4095).astype('<u2')  # little-endian uint16
+
+    return u12.tobytes()
+
+
+class GnuRadioSink:
+    def __init__(self,host: str="127.0.0.1", port: int=2000):
+        self.host = host
+        self.port = port
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.connect((self.host, self.port))
+
+    def recv(self, size: int):
+        data, _ = self.sock.recvfrom(size)
+        return data
 
 def calc_inc(f_out, f_clk):
     return int((1 << 32) * f_out / f_clk)
@@ -40,7 +75,6 @@ class SinTxNoLUT:
             iq_data.extend(c.to_bytes(2, 'little'))
         return iq_data
     
-
 class SinTx:
     BITS = 12
     
@@ -71,11 +105,37 @@ class SinTx:
             iq_data.extend(c.to_bytes(2, 'little'))
         return iq_data
 
+class GenMeander:
+    BITS = 12  # DAC resolution (12-bit: 0..4095)
+    
+    def __init__(self, f_out=1_000, f_clk=32_000):
+        self.index = 0
+        
+        self.max_val = (1 << self.BITS) - 1  # 4095
+        self.mid_val = self.max_val / 2.0    # 2047.5
+
+    def next(self):
+        self.index = (self.index + 1) % 2
+        
+        sin_val = round(self.max_val*self.index)
+        cos_val = round(self.max_val*(1-self.index))
+        
+        return sin_val, cos_val
+
+    def get_iq(self, n_samples):
+        iq_data = bytearray()
+        for _ in range(n_samples):
+            s, c = self.next()
+            iq_data.extend(s.to_bytes(2, 'little'))
+            iq_data.extend(c.to_bytes(2, 'little'))
+        return iq_data
+
 
 def main():
     #test()
 
-    dds = SinTxNoLUT(f_out=1, f_clk=32)
+    dds = SinTxNoLUT(f_out=1000, f_clk=32000)
+    # dds = GenMeander(f_out=1000, f_clk=32000)
     port = auto_detect_port()
     print(f"Using port {port}")
     client = DeviceClient(port=port, baudrate=50000000, timeout=3.0)
@@ -89,7 +149,7 @@ def main():
             SB = 512
             
             request_size, overflow, tx_usb_overflow, rx_usb_overflow = client.req_iq(payload=iq_data)
-            print(f"Send IQ response: {request_size}, {overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
+            #print(f"Send IQ response: {request_size}, {overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
             if request_size>=SB:
                 n = request_size//SB
                 # k = request_size%SB
@@ -101,25 +161,9 @@ def main():
             else:
                 iq_data = b""
 
-            # if overflow2 != overflow or tx_usb_overflow2 != tx_usb_overflow or rx_usb_overflow2 != rx_usb_overflow:
-            #     print(f"Send IQ response: {request_size}, {overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
-            #     overflow2, tx_usb_overflow2, rx_usb_overflow2 = overflow, tx_usb_overflow, rx_usb_overflow
-
-            # request_size, overflow, tx_usb_overflow, rx_usb_overflow = client.get_iq_stream_tx_info()
-            # print(f"Send IQ response: {request_size}, {overflow}, {tx_usb_overflow}, {rx_usb_overflow}")            
-            # SB = 512
-            # n = request_size//SB
-            # # k = request_size%SB
-            # for i in range(n):
-            #     iq_data = dds.get_iq(SB//4)
-            #     client.send_iq(payload=iq_data)
-
-
-            # client.send_iq(payload=b"\x00" * 512)
-            # client.send_iq(payload=b"\x00" * 512)
-            # client.send_iq(payload=b"\x00" * 512)
-            # client.send_iq(payload=b"\x00" * 512)
-            # client.send_iq(payload=b"\x00" * 512)
+            if overflow2 != overflow or tx_usb_overflow2 != tx_usb_overflow or rx_usb_overflow2 != rx_usb_overflow:
+                print(f"Send IQ response: {request_size}, {overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
+                overflow2, tx_usb_overflow2, rx_usb_overflow2 = overflow, tx_usb_overflow, rx_usb_overflow
 
     finally:
         client.close()
@@ -132,7 +176,7 @@ if __name__ == "__main2__":
     f_clk = 32
     n_samples = 16
  
-    gen = SinTxNoLUT(f_out=f_out, f_clk=f_clk)
+    gen = GenMeander(f_out=f_out, f_clk=f_clk)
  
     sins, coss = [], []
     for _ in range(n_samples):
@@ -159,4 +203,5 @@ if __name__ == "__main2__":
     print("Q values:", coss)
 
 if __name__ == "__main__":
+    b = cf32_bytes_to_u12(b"\x00\x00\x00\x00\x00\x00\x00\x00")  # Example usage
     main()

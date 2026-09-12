@@ -4,8 +4,8 @@
 
 #define MAX_USB_PACKET_SIZE 63
 
-#define USB_RX_FIFO_SIZE (1024*2 + 1)
-#define USB_TX_FIFO_SIZE (1024*2 + 1)//(10*1024*2 + 1)
+#define USB_RX_FIFO_SIZE (1024*3 + 1)
+#define USB_TX_FIFO_SIZE (1024*3 + 1)
 
 void transport_init(void);
 void transport_send(uint8_t* data, int len);
