@@ -12,11 +12,11 @@ int main() {
     transport_init();
     iq_init();
     
-    adc_init();
+    // adc_init();
     dac_init();
     
     while (1){
-        adc_dispatch();
+        // adc_dispatch();
         dac_dispatch();
         iq_dispatch();
     }

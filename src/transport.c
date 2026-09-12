@@ -22,9 +22,9 @@ void OnUsbTransmitted() {
 
     uint8_t usb_buf[MAX_USB_PACKET_SIZE];
     usb_transmitting = 0;
-    // __disable_irq();
+    __disable_irq();
     int n = fifo_read(&usb_tx, usb_buf, sizeof(usb_buf));
-    // __enable_irq();
+    __enable_irq();
     if (n > 0) {
         usb_transmitting = 1;
         CDC_Send_DATA(usb_buf, n);
@@ -32,9 +32,9 @@ void OnUsbTransmitted() {
 }
 
 void OnUsbReceived(uint8_t* buf, int n) {
-    // __disable_irq();
+    __disable_irq();
     fifo_write(&usb_rx, buf, n);
-    // __enable_irq();
+    __enable_irq();
 }
 
 void OnUsbUnconnected() { usb_connected = 0; }
@@ -45,9 +45,9 @@ void OnUsbConfigured() {
 }
 
 void transport_send(uint8_t* data, int len) {
-    // __disable_irq();
+    __disable_irq();
     fifo_write(&usb_tx, data, len);
-    // __enable_irq();
+    __enable_irq();
     if (!usb_transmitting) {
         OnUsbTransmitted();
     }
@@ -67,10 +67,16 @@ void transport_init(void) {
 }
 
 int transport_recv(uint8_t* buf, int max_len) {
-    // __disable_irq();
+    __disable_irq();
     int n = fifo_read(&usb_rx, buf, max_len);
-    // __enable_irq();
+    __enable_irq();
     return n;
 }
 uint32_t transport_get_rx_overflow(void) { return fifo_get_overflow(&usb_rx); }
 uint32_t transport_get_tx_overflow(void) { return fifo_get_overflow(&usb_tx); }
+
+uint32_t transport_get_rx_free_space(void) { return fifo_get_free_space(&usb_rx); }
+uint32_t transport_get_tx_free_space(void) { return fifo_get_free_space(&usb_tx); }
+
+uint32_t transport_get_rx_size(void) { return fifo_get_size(&usb_rx); }
+uint32_t transport_get_tx_size(void) { return fifo_get_size(&usb_tx); }

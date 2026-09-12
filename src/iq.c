@@ -4,6 +4,7 @@
 #include "command.h"
 #include "fifo.h"
 #include "transport.h"
+#include "stm32f10x.h"
 
 typedef struct __attribute__((packed)) {
     uint32_t overflow;
@@ -12,20 +13,20 @@ typedef struct __attribute__((packed)) {
 
 typedef struct __attribute__((packed)) {
     uint32_t free_space;
-    uint32_t overflow_dac;
+    uint32_t consumtion_fail;
     uint32_t tx_usb_overflow;
     uint32_t rx_usb_overflow;
-} iq_stream_tx_response_t;
+} usb_stream_info_t;
 
-static iq_stream_tx_response_t resp_iq_stream_tx = {
+static usb_stream_info_t resp_iq_stream_tx_info = {
     .free_space = 0,
-    .overflow_dac = 0,
+    .consumtion_fail = 0,
     .tx_usb_overflow = 0,
     .rx_usb_overflow = 0
 };
 
 static fifo_t fifo_dac;
-static uint8_t fifo_buffer_dac[DAC_N_SAMPLES * 4 * 2 + 1];
+static uint8_t fifo_buffer_dac[1024*10+1];//DAC_N_SAMPLES * 4 * 2 + 1];
 
 
 [[maybe_unused]]static const uint16_t sine_12bit[DAC_N_SAMPLES] = {
@@ -64,15 +65,23 @@ void on_adc(uint16_t *buf, int n){
 
 
 void on_dac(uint32_t *buf, int n) {
-    int size = n * 4;
+    // static uint8_t iq_usb_stream_seq = 0;
+    int size = n * sizeof(uint32_t);
     int filled_space = fifo_get_filled(&fifo_dac);
     if (filled_space >= size) {
+        __disable_irq();
         fifo_read(&fifo_dac, (uint8_t*)buf, size);
+        __enable_irq();
+    }else{
+        resp_iq_stream_tx_info.consumtion_fail++;
     }
 
-    resp_iq_stream_tx.free_space = fifo_get_free_space(&fifo_dac);
-    resp_iq_stream_tx.tx_usb_overflow = transport_get_tx_overflow();
-    resp_iq_stream_tx.rx_usb_overflow = transport_get_rx_overflow();
+    
+    // resp_iq_stream_tx_info.free_space = fifo_get_free_space(&fifo_dac);
+    // resp_iq_stream_tx_info.tx_usb_overflow = transport_get_tx_overflow();
+    // resp_iq_stream_tx_info.rx_usb_overflow = transport_get_rx_overflow();
+
+    // command_send(RESP_IQ_STREAM_TX_INFO, iq_usb_stream_seq++, (const uint8_t*)&resp_iq_stream_tx_info, sizeof(resp_iq_stream_tx_info));
 
     led_control(half);
     half^=1;
@@ -98,13 +107,39 @@ void command_handler(const frame_t* frame) {
             handle_ping(frame);
             break;
         case CMD_IQ_STREAM_TX:
+            __disable_irq();
             fifo_write(&fifo_dac, frame->payload, frame->command.len);
-            resp_iq_stream_tx.overflow_dac = fifo_dac.overflow;
-            resp_iq_stream_tx.free_space = fifo_get_free_space(&fifo_dac);
-            resp_iq_stream_tx.tx_usb_overflow = transport_get_tx_overflow();
-            resp_iq_stream_tx.rx_usb_overflow = transport_get_rx_overflow();
-            command_send(RESP_IQ_STREAM_TX, frame->command.seq, (const uint8_t*)&resp_iq_stream_tx, sizeof(resp_iq_stream_tx));
+            __enable_irq();
+            // resp_iq_stream_tx_info.free_space = fifo_get_free_space(&fifo_dac);
+            // resp_iq_stream_tx_info.tx_usb_overflow = transport_get_tx_overflow();
+            // resp_iq_stream_tx_info.rx_usb_overflow = transport_get_rx_overflow();
+
+            // command_send(RESP_IQ_STREAM_TX_INFO, frame->command.seq, (const uint8_t*)&resp_iq_stream_tx_info, sizeof(resp_iq_stream_tx_info));
+
+            // resp_iq_stream_tx_info.size = fifo_dac.overflow;
+            // resp_iq_stream_tx_info.free_space = fifo_get_free_space(&fifo_dac);
+            // resp_iq_stream_tx_info.tx_usb_overflow = transport_get_tx_overflow();
+            // resp_iq_stream_tx_info.rx_usb_overflow = transport_get_rx_overflow();
+            // command_send(RESP_IQ_STREAM_TX_INFO, frame->command.seq, (const uint8_t*)&resp_iq_stream_tx_info, sizeof(resp_iq_stream_tx_info));
             break;
+
+        case CMD_IQ_STREAM_TX_INFO:
+            __disable_irq();
+            fifo_write(&fifo_dac, frame->payload, frame->command.len);
+            __enable_irq();
+            resp_iq_stream_tx_info.free_space = fifo_get_free_space(&fifo_dac);
+            resp_iq_stream_tx_info.tx_usb_overflow = transport_get_tx_overflow();
+            resp_iq_stream_tx_info.rx_usb_overflow = fifo_get_overflow(&fifo_dac); //transport_get_rx_overflow();
+
+            command_send(RESP_IQ_STREAM_TX_INFO, frame->command.seq, (const uint8_t*)&resp_iq_stream_tx_info, sizeof(resp_iq_stream_tx_info));
+
+            // resp_iq_stream_tx_info.size = fifo_dac.overflow;
+            // resp_iq_stream_tx_info.free_space = fifo_get_free_space(&fifo_dac);
+            // resp_iq_stream_tx_info.tx_usb_overflow = transport_get_tx_overflow();
+            // resp_iq_stream_tx_info.rx_usb_overflow = transport_get_rx_overflow();
+            // command_send(RESP_IQ_STREAM_TX_INFO, frame->command.seq, (const uint8_t*)&resp_iq_stream_tx_info, sizeof(resp_iq_stream_tx_info));
+            break;
+
         default:
             command_send_error(frame->command.seq, ERR_BAD_COMMAND, frame->command.cmd);
             break;

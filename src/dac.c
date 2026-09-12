@@ -43,9 +43,9 @@ void DMA2_Channel4_5_IRQHandler(void) {
 }
 
 void dac_init() {
-    for (idx = 0; idx < DAC_N_SAMPLES; idx++) {
-        samples[idx] = (sine_12bit[idx] << 16) + (sine_12bit[idx]);
-    }
+    // for (idx = 0; idx < DAC_N_SAMPLES; idx++) {
+    //     samples[idx] = (sine_12bit[idx] << 16) + (sine_12bit[idx]);
+    // }
 
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA2, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
@@ -68,7 +68,7 @@ void dac_init() {
 
     
     TIM_TimeBaseStructInit(&TIM_TimeBaseStructure); 
-    TIM_TimeBaseStructure.TIM_Period = 1000-1; // FIX!!!
+    TIM_TimeBaseStructure.TIM_Period = 10-1; // FIX!!!
     TIM_TimeBaseStructure.TIM_Prescaler = 1-1;//9-1;
     TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;    
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;  

@@ -16,6 +16,7 @@ enum {
     CMD_FPGA_CONFIG = 0x20,
     CMD_IQ_STREAM = 0x30,
     CMD_IQ_STREAM_TX = 0x31,
+    CMD_IQ_STREAM_TX_INFO = 0x32,
 };
 
 enum {
@@ -27,7 +28,7 @@ enum {
     RESP_FPGA_CONFIG = 0xA0,
     RESP_IQ_STREAM = 0xB0,
     RESP_IQ_DATA = 0xB1,
-    RESP_IQ_STREAM_TX = 0xB2,
+    RESP_IQ_STREAM_TX_INFO = 0xB2,
 };
 
 enum {

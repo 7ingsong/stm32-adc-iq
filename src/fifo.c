@@ -23,6 +23,11 @@ int fifo_get_filled(fifo_t* fifo) {
     return filled;
 }
 
+int fifo_get_size(fifo_t* fifo) {
+    return fifo->size-1;
+}
+
+
 void fifo_write(fifo_t* fifo, const uint8_t* buf, int n) {
     if (n <= 0) return;
 

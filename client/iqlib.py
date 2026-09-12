@@ -12,12 +12,13 @@ FRAME_MAX_PAYLOAD = 2048
 CMD_PING = 0x01
 CMD_IQ_STREAM = 0x30
 CMD_IQ_STREAM_TX = 0x31
+CMD_IQ_STREAM_TX_INFO = 0x32
 
 RESP_ACK = 0x80
 RESP_ERR = 0x81
 RESP_IQ_STREAM = 0xB0
 RESP_IQ_DATA = 0xB1
-RESP_IQ_STREAM_TX = 0xB2
+RESP_IQ_STREAM_TX_INFO = 0xB2
 
 ERR_NAMES = {
     1: "ERR_BAD_MAGIC",
@@ -180,6 +181,9 @@ class DeviceClient:
             if response["cmd"] == RESP_IQ_DATA:
                 continue
 
+            # if response["cmd"] == RESP_IQ_STREAM_TX_INFO:
+            #     continue
+
             if response["seq"] != seq:
                 continue
 
@@ -204,8 +208,8 @@ class DeviceClient:
     def ping(self):
         return self.req_command(CMD_PING, cmd_resp=RESP_ACK)
 
-    def send_iq(self, payload=bytes()):
-        resp = self.req_command(CMD_IQ_STREAM_TX, cmd_resp=RESP_IQ_STREAM_TX, payload=payload)
+    def req_iq(self, payload=bytes()):
+        resp = self.req_command(CMD_IQ_STREAM_TX_INFO, cmd_resp=RESP_IQ_STREAM_TX_INFO, payload=payload)
         request_size, overflow, tx_usb_overflow, rx_usb_overflow = struct.unpack("<IIII", resp)
         return request_size, overflow, tx_usb_overflow, rx_usb_overflow
 
@@ -227,10 +231,36 @@ class DeviceClient:
                 continue
 
         if frame["cmd"] != RESP_IQ_DATA:
-            raise ProtocolError(f"unexpected response 0x{frame['cmd']:02X}")
+            raise ProtocolError(f"unexpected response 0x{frame['cmd']:02X} {frame['payload'].hex()}")
 
         print(f"frame seq={frame['seq']} length={len(frame['payload'])}")
         return frame["payload"]
+
+    def get_iq_stream_tx_info(self, timeout=5.0):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                frame = self.read_frame()
+                break
+            except TimeoutError:
+                continue
+
+        if frame["cmd"] != RESP_IQ_STREAM_TX_INFO:
+            raise ProtocolError(f"unexpected response 0x{frame['cmd']:02X} {frame['payload'].hex()}")
+
+        print(f"frame seq={frame['seq']} length={len(frame['payload'])}")
+
+        resp = frame["payload"]
+        request_size, overflow, tx_usb_overflow, rx_usb_overflow = struct.unpack("<IIII", resp)
+        return request_size, overflow, tx_usb_overflow, rx_usb_overflow
+
+    def send(self, cmd, payload=bytes()):
+        seq = self.next_seq()
+        self.serial.reset_input_buffer()
+        self.serial.write(build_frame(cmd, seq, payload))
+
+    def send_iq(self, payload=bytes()):
+        self.send(CMD_IQ_STREAM_TX, payload=payload)
 
     def pop(self, n):
         payload = self.queue_data[:n]

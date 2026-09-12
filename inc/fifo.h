@@ -17,5 +17,6 @@ void fifo_write(fifo_t* fifo, const uint8_t* buf, int n);
 int fifo_get_free_space(fifo_t* fifo);
 int fifo_get_filled(fifo_t* fifo);
 uint32_t fifo_get_overflow(fifo_t* fifo);
+int fifo_get_size(fifo_t* fifo);
 
 #endif
