@@ -57,8 +57,6 @@ void adc_dispatch(void) {
     }
 }
 
-#define ADC1_DR_Address    ((uint32_t)0x4001244C)
-
 void adc_init(){
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_3);
     NVIC_InitTypeDef nvic;
@@ -70,7 +68,7 @@ void adc_init(){
 
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
     DMA_DeInit(DMA1_Channel1);
-    DMA_InitStructure.DMA_PeripheralBaseAddr = ADC1_DR_Address;//(uint32_t)&ADC1->DR;
+    DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&ADC1->DR;
     DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)&samples[0];
     DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
     DMA_InitStructure.DMA_BufferSize = ADC_N_SAMPLES;
