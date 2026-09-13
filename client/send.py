@@ -158,8 +158,8 @@ class GenMeander:
 def main():
     #test()
 
-    # dds = GnuRadioSink(host="127.0.0.1", port=2000)
-    dds = SinTx(f_out=1000, f_clk=32000)
+    dds = GnuRadioSink(host="127.0.0.1", port=2000)
+    # dds = SinTx(f_out=8000, f_clk=64000)
     # dds = GenMeander()
     port = auto_detect_port()
     print(f"Using port {port}")

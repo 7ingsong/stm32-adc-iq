@@ -37,7 +37,7 @@ blocks:
   id: variable
   parameters:
     comment: ''
-    value: '32000'
+    value: '64000'
   states:
     bus_sink: false
     bus_source: false
@@ -137,7 +137,7 @@ blocks:
     bus_structure: null
     coordinate: [920, 268.0]
     rotation: 0
-    state: enabled
+    state: disabled
 - name: blocks_multiply_xx_0
   id: blocks_multiply_xx
   parameters:
@@ -162,7 +162,7 @@ blocks:
     affinity: ''
     alias: ''
     comment: ''
-    file: /Users/singsong/Downloads/hussein_got_im.wav
+    file: /Users/singsong/projects/public/stm32-adc-iq/client/hussein_got_im.wav
     maxoutbuf: '0'
     minoutbuf: '0'
     nchan: '1'
@@ -213,9 +213,9 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [824, 180.0]
+    coordinate: [800, 100.0]
     rotation: 0
-    state: disabled
+    state: enabled
 - name: network_tcp_sink_0
   id: network_tcp_sink
   parameters:
@@ -341,6 +341,7 @@ connections:
 - [analog_sig_source_x_0, '0', blocks_multiply_xx_0, '1']
 - [audio_source_0, '0', hilbert_fc_0, '0']
 - [blocks_multiply_const_vxx_0, '0', network_tcp_sink_0, '0']
+- [blocks_multiply_const_vxx_0, '0', qtgui_freq_sink_x_0, '0']
 - [blocks_multiply_xx_0, '0', pfb_arb_resampler_xxx_0, '0']
 - [blocks_wavfile_source_0, '0', hilbert_fc_0, '0']
 - [hilbert_fc_0, '0', blocks_multiply_xx_0, '0']
@@ -348,7 +349,6 @@ connections:
 - [low_pass_filter_0, '0', qtgui_freq_sink_x_0, '0']
 - [pfb_arb_resampler_xxx_0, '0', blocks_multiply_const_vxx_0, '0']
 - [pfb_arb_resampler_xxx_0, '0', low_pass_filter_0, '0']
-- [pfb_arb_resampler_xxx_0, '0', qtgui_freq_sink_x_0, '0']
 
 metadata:
   file_format: 1
