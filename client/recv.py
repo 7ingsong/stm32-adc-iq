@@ -14,8 +14,11 @@ def main():
         print(f"Ping response: {resp.decode()}")
         client.start_rx()
         f = open ("samples.cf32","wb+")
-        deadline = time.time()+10
+        deadline = time.time()+60
         while (deadline-time.time())>0:
+            # data = client.req_rx_iq()
+            # iq = client.convert_all(data)
+            # sock.sendall(iq)
             data = client.serial.read(2048*10)
             client.push(data)
             while client.get_size() >= (0x108*2):

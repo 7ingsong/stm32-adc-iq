@@ -120,6 +120,16 @@ void command_handler(const frame_t* frame) {
             command_send(RESP_ACK, frame->command.seq, 0, 0);
             break;
 
+        // case CMD_IQ_STREAM_RX:
+        //     uint8_t buf[FRAME_MAX_PAYLOAD];
+        //     int filled = fifo_get_filled(&fifo_adc);
+        //     if (filled>=FRAME_MAX_PAYLOAD){
+        //         fifo_read(&fifo_adc, buf, FRAME_MAX_PAYLOAD);
+        //         command_send(RESP_IQ_STREAM_RX, frame->command.seq, buf, FRAME_MAX_PAYLOAD);
+        //     }else{
+        //         command_send(RESP_IQ_STREAM_RX, frame->command.seq, 0, 0);
+        //     }
+        //     break;
         case CMD_IQ_STREAM_TX_INFO:
             fifo_write(&fifo_dac, frame->payload, frame->command.len);
             resp_iq_stream_tx_info.free_space = fifo_get_free_space(&fifo_dac);

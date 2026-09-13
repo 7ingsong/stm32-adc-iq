@@ -230,6 +230,10 @@ class DeviceClient:
         request_size, overflow, tx_usb_overflow, rx_usb_overflow = struct.unpack("<IIII", resp)
         return request_size, overflow, tx_usb_overflow, rx_usb_overflow
 
+    def req_rx_iq(self):
+        resp = self.req_command(CMD_IQ_STREAM_RX, cmd_resp=RESP_IQ_STREAM_RX)
+        return resp
+
     def set_iq_stream_mode(self, mode):
         return self.req_command(CMD_IQ_STREAM, cmd_resp=RESP_IQ_STREAM, payload=bytes((mode,)))
 
