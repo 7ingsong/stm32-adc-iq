@@ -14,6 +14,7 @@ int main() {
     
     // dac_init();
     adc_init();
+    // adc_start();
     
     while (1){
         // dac_dispatch();

@@ -110,16 +110,19 @@ void adc_init(){
     ADC_Init(ADC1, &ADC_InitStructure);
 
     ADC_RegularChannelConfig(ADC1, ADC_Channel_6, 1, ADC_SampleTime_71Cycles5); // ADC_SampleTime_55Cycles5);
-    ADC_DMACmd(ADC1, ENABLE);
+    // ADC_DMACmd(ADC1, ENABLE);
 
     ADC_Init(ADC2, &ADC_InitStructure);
     ADC_RegularChannelConfig(ADC2, ADC_Channel_7, 1, ADC_SampleTime_71Cycles5); // ADC_SampleTime_55Cycles5);
     ADC_ExternalTrigConvCmd(ADC2, ENABLE);
 
-    ADC_Cmd(ADC1, ENABLE);
-    
     ADC_TempSensorVrefintCmd(ENABLE);
+}
 
+void adc_start() {
+    ADC_DMACmd(ADC1, ENABLE);
+    
+    ADC_Cmd(ADC1, ENABLE);
     ADC_ResetCalibration(ADC1);
     while(ADC_GetResetCalibrationStatus(ADC1));
     ADC_StartCalibration(ADC1);
@@ -134,3 +137,9 @@ void adc_init(){
     ADC_SoftwareStartConvCmd(ADC1, ENABLE);
 }
 
+void adc_stop() {
+    ADC_SoftwareStartConvCmd(ADC1, DISABLE);
+    ADC_Cmd(ADC2, DISABLE);
+    ADC_Cmd(ADC1, DISABLE);
+    ADC_DMACmd(ADC1, DISABLE);
+}

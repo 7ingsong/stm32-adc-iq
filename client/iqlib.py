@@ -15,13 +15,16 @@ CMD_IQ_STREAM_TX = 0x31
 CMD_IQ_STREAM_TX_INFO = 0x32
 CMD_IQ_STREAM_TX_START = 0x33
 CMD_IQ_STREAM_TX_STOP = 0x34
-
+CMD_IQ_STREAM_RX_START = 0x35
+CMD_IQ_STREAM_RX_STOP = 0x36
+CMD_IQ_STREAM_RX = 0x37
 
 RESP_ACK = 0x80
 RESP_ERR = 0x81
 RESP_IQ_STREAM = 0xB0
 RESP_IQ_DATA = 0xB1
 RESP_IQ_STREAM_TX_INFO = 0xB2
+RESP_IQ_STREAM_RX = 0xB3
 
 ERR_NAMES = {
     1: "ERR_BAD_MAGIC",
@@ -215,6 +218,12 @@ class DeviceClient:
 
     def stop_tx(self):
         return self.req_command(CMD_IQ_STREAM_TX_STOP, cmd_resp=RESP_ACK)
+
+    def start_rx(self):
+        return self.req_command(CMD_IQ_STREAM_RX_START, cmd_resp=RESP_ACK)
+
+    def stop_rx(self):
+        return self.req_command(CMD_IQ_STREAM_RX_STOP, cmd_resp=RESP_ACK)
 
     def req_iq(self, payload=bytes()):
         resp = self.req_command(CMD_IQ_STREAM_TX_INFO, cmd_resp=RESP_IQ_STREAM_TX_INFO, payload=payload)

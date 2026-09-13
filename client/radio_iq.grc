@@ -173,7 +173,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [632, 188.0]
+    coordinate: [632, 124.0]
     rotation: 0
     state: disabled
 - name: network_tcp_source_0

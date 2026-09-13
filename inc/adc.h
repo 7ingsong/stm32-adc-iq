@@ -7,4 +7,7 @@
 void adc_init();
 void on_adc(uint32_t *, int);
 void adc_dispatch();
+void adc_start();
+void adc_stop();
+
 #endif

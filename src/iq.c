@@ -1,5 +1,6 @@
 #include "iq.h"
 #include "dac.h"
+#include "adc.h"
 #include "utils.h"
 #include "command.h"
 #include "fifo.h"
@@ -109,6 +110,16 @@ void command_handler(const frame_t* frame) {
 
             command_send(RESP_ACK, frame->command.seq, 0, 0);
             break;
+
+        case CMD_IQ_STREAM_RX_START:
+            adc_start();
+            command_send(RESP_ACK, frame->command.seq, 0, 0);
+            break;
+        case CMD_IQ_STREAM_RX_STOP:
+            adc_stop();
+            command_send(RESP_ACK, frame->command.seq, 0, 0);
+            break;
+
         case CMD_IQ_STREAM_TX_INFO:
             fifo_write(&fifo_dac, frame->payload, frame->command.len);
             resp_iq_stream_tx_info.free_space = fifo_get_free_space(&fifo_dac);

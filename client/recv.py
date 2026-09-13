@@ -1,5 +1,6 @@
 from iqlib import DeviceClient, auto_detect_port
 import socket
+import time
 
 def main():
     port = auto_detect_port()
@@ -11,8 +12,10 @@ def main():
     try:
         resp = client.ping()
         print(f"Ping response: {resp.decode()}")
+        client.start_rx()
         f = open ("samples.cf32","wb+")
-        while True:
+        deadline = time.time()+10
+        while (deadline-time.time())>0:
             data = client.serial.read(2048*10)
             client.push(data)
             while client.get_size() >= (0x108*2):
@@ -22,6 +25,7 @@ def main():
 
                 # print(f"iq length={len(iq)}")
                 sock.sendall(iq)
+        client.stop_rx()
 
     finally:
         client.close()
