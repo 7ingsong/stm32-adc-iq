@@ -1,10 +1,13 @@
 from iqlib import DeviceClient, auto_detect_port
+import socket
 
 def main():
     port = auto_detect_port()
     print(f"Using port {port}")
     client = DeviceClient(port=port, baudrate=50000000, timeout=3.0)
 
+    sock = socket.socket()
+    sock.connect(("127.0.0.1", 2000))
     try:
         resp = client.ping()
         print(f"Ping response: {resp.decode()}")
@@ -18,7 +21,7 @@ def main():
                 f.flush()
 
                 # print(f"iq length={len(iq)}")
-                client.sock_udp.sendto(iq, ("127.0.0.1",2000))
+                sock.sendall(iq)
 
     finally:
         client.close()

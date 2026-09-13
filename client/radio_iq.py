@@ -15,9 +15,8 @@ from PyQt5 import QtCore
 from gnuradio import analog
 from gnuradio import audio
 from gnuradio import blocks
-from gnuradio import filter
-from gnuradio.filter import firdes
 from gnuradio import gr
+from gnuradio.filter import firdes
 from gnuradio.fft import window
 import sys
 import signal
@@ -70,7 +69,7 @@ class radio_iq(gr.top_block, Qt.QWidget):
         ##################################################
         self.values_freq = values_freq = 0
         self.samp_rate2 = samp_rate2 = 48e3
-        self.samp_rate = samp_rate = 88235
+        self.samp_rate = samp_rate = 142857
 
         ##################################################
         # Blocks
@@ -127,16 +126,7 @@ class radio_iq(gr.top_block, Qt.QWidget):
             flt_size=32,
             atten=100)
         self.pfb_arb_resampler_xxx_0.declare_sample_delay(0)
-        self.network_udp_source_0 = network.udp_source(gr.sizeof_gr_complex, 1, 2000, 0, (512*2), False, False, False)
-        self.low_pass_filter_0 = filter.fir_filter_ccf(
-            1,
-            firdes.low_pass(
-                1,
-                samp_rate,
-                3e3,
-                1000,
-                window.WIN_HAMMING,
-                6.76))
+        self.network_tcp_source_0 = network.tcp_source.tcp_source(itemsize=gr.sizeof_gr_complex*1,addr='127.0.0.1',port=2000,server=True)
         self.blocks_multiply_xx_0 = blocks.multiply_vcc(1)
         self.blocks_complex_to_imag_0 = blocks.complex_to_imag(1)
         self.audio_sink_0 = audio.sink(48000, '', True)
@@ -148,10 +138,9 @@ class radio_iq(gr.top_block, Qt.QWidget):
         ##################################################
         self.connect((self.analog_sig_source_x_0, 0), (self.blocks_multiply_xx_0, 1))
         self.connect((self.blocks_complex_to_imag_0, 0), (self.audio_sink_0, 0))
-        self.connect((self.blocks_multiply_xx_0, 0), (self.low_pass_filter_0, 0))
+        self.connect((self.blocks_multiply_xx_0, 0), (self.pfb_arb_resampler_xxx_0, 0))
         self.connect((self.blocks_multiply_xx_0, 0), (self.qtgui_freq_sink_x_0, 0))
-        self.connect((self.low_pass_filter_0, 0), (self.pfb_arb_resampler_xxx_0, 0))
-        self.connect((self.network_udp_source_0, 0), (self.blocks_multiply_xx_0, 0))
+        self.connect((self.network_tcp_source_0, 0), (self.blocks_multiply_xx_0, 0))
         self.connect((self.pfb_arb_resampler_xxx_0, 0), (self.blocks_complex_to_imag_0, 0))
 
 
@@ -183,7 +172,6 @@ class radio_iq(gr.top_block, Qt.QWidget):
     def set_samp_rate(self, samp_rate):
         self.samp_rate = samp_rate
         self.analog_sig_source_x_0.set_sampling_freq(self.samp_rate)
-        self.low_pass_filter_0.set_taps(firdes.low_pass(1, self.samp_rate, 3e3, 1000, window.WIN_HAMMING, 6.76))
         self.pfb_arb_resampler_xxx_0.set_rate((self.samp_rate2/self.samp_rate))
         self.qtgui_freq_sink_x_0.set_frequency_range(0, self.samp_rate)
 

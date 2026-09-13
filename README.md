@@ -4,4 +4,4 @@ FFT
 ![alt text](docs/fft.png)
 
 GNU Radio
-<video controls src="docs/demo_71428sps.mov" title="Title"></video>
+<video controls src="docs/demo_142857sps.mov" title="Title"></video>

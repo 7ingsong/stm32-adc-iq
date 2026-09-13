@@ -123,7 +123,6 @@ class DeviceClient:
         self.serial = serial.Serial(port=port, baudrate=baudrate, timeout=timeout)
         self.seq = 1
         self.queue_data = bytearray()
-        self.sock_udp = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 
     def close(self):
         self.serial.close()

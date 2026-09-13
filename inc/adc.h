@@ -2,7 +2,7 @@
 #define _PERIPHERAL
 #include <stdint.h>
 
-#define ADC_N_SAMPLES (9*1024)
+#define ADC_N_SAMPLES 1024
 
 void adc_init();
 void on_adc(uint32_t *, int);

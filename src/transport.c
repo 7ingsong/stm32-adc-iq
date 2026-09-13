@@ -46,6 +46,14 @@ void OnUsbConfigured() {
 
 void transport_send(uint8_t* data, int len) {
     __disable_irq();
+    if (len > fifo_get_free_space(&usb_tx)) {
+        /* Not enough room: drop this whole frame rather than letting
+         * fifo_write() evict oldest bytes, which can land mid-frame and
+         * corrupt an already-queued, not-yet-transmitted packet. */
+        usb_tx.overflow += len;
+        __enable_irq();
+        return;
+    }
     fifo_write(&usb_tx, data, len);
     __enable_irq();
     if (!usb_transmitting) {
