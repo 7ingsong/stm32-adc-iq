@@ -109,11 +109,11 @@ void adc_init(){
     ADC_InitStructure.ADC_NbrOfChannel = 1;
     ADC_Init(ADC1, &ADC_InitStructure);
 
-    ADC_RegularChannelConfig(ADC1, ADC_Channel_6, 1, ADC_SampleTime_71Cycles5); // ADC_SampleTime_55Cycles5);
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_6, 1, ADC_SampleTime_71Cycles5); // 12e6/(71.5+12.5) = 142857HZ
     // ADC_DMACmd(ADC1, ENABLE);
 
     ADC_Init(ADC2, &ADC_InitStructure);
-    ADC_RegularChannelConfig(ADC2, ADC_Channel_7, 1, ADC_SampleTime_71Cycles5); // ADC_SampleTime_55Cycles5);
+    ADC_RegularChannelConfig(ADC2, ADC_Channel_7, 1, ADC_SampleTime_71Cycles5);
     ADC_ExternalTrigConvCmd(ADC2, ENABLE);
 
     ADC_TempSensorVrefintCmd(ENABLE);
