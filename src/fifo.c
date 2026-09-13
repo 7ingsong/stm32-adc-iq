@@ -56,12 +56,21 @@ void fifo_write(fifo_t* fifo, const uint8_t* buf, int n) {
 }
 
 int fifo_read(fifo_t* fifo, uint8_t* dst, int max_len) {
-    int count = 0;
+    int size = fifo->size;
+    int filled = (fifo->head + size - fifo->tail) % size;
+    int n = max_len < filled ? max_len : filled;
 
-    while (count < max_len && fifo->tail != fifo->head) {
-        dst[count++] = fifo->buffer[fifo->tail];
-        fifo->tail = (fifo->tail + 1) % fifo->size;
+    if (n <= 0) return 0;
+
+    /* read in up to two memcpy chunks to handle wrap */
+    int first = n;
+    if (first > size - fifo->tail) first = size - fifo->tail;
+    memcpy(dst, &fifo->buffer[fifo->tail], first);
+    if (n - first > 0) {
+        memcpy(dst + first, &fifo->buffer[0], n - first);
     }
 
-    return count;
+    fifo->tail = (fifo->tail + n) % size;
+
+    return n;
 }

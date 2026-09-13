@@ -37,7 +37,7 @@ blocks:
   id: variable
   parameters:
     comment: ''
-    value: 100e3
+    value: '32000'
   states:
     bus_sink: false
     bus_source: false
@@ -49,12 +49,56 @@ blocks:
   id: variable
   parameters:
     comment: ''
-    value: '48000'
+    value: 11e3
   states:
     bus_sink: false
     bus_source: false
     bus_structure: null
     coordinate: [296, 24.0]
+    rotation: 0
+    state: enabled
+- name: value
+  id: variable_qtgui_range
+  parameters:
+    comment: ''
+    gui_hint: ''
+    label: ''
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: -10e3
+    step: '10'
+    stop: 10e3
+    value: '0'
+    widget: counter_slider
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [408, 16.0]
+    rotation: 0
+    state: enabled
+- name: analog_sig_source_x_0
+  id: analog_sig_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    amp: '1'
+    comment: ''
+    freq: value
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    offset: '0'
+    phase: '0'
+    samp_rate: samp_rate_mic
+    showports: 'False'
+    type: complex
+    waveform: analog.GR_COS_WAVE
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [112, 268.0]
     rotation: 0
     state: enabled
 - name: audio_source_0
@@ -73,7 +117,61 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [200, 228.0]
+    coordinate: [240, 84.0]
+    rotation: 0
+    state: disabled
+- name: blocks_multiply_const_vxx_0
+  id: blocks_multiply_const_vxx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    const: '5'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [920, 268.0]
+    rotation: 0
+    state: enabled
+- name: blocks_multiply_xx_0
+  id: blocks_multiply_xx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_inputs: '2'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [480, 228.0]
+    rotation: 0
+    state: enabled
+- name: blocks_wavfile_source_0
+  id: blocks_wavfile_source
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    file: /Users/singsong/Downloads/hussein_got_im.wav
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    nchan: '1'
+    repeat: 'True'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [64, 136.0]
     rotation: 0
     state: enabled
 - name: hilbert_fc_0
@@ -91,7 +189,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [352, 188.0]
+    coordinate: [352, 164.0]
     rotation: 0
     state: enabled
 - name: low_pass_filter_0
@@ -115,9 +213,9 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [768, 184.0]
+    coordinate: [824, 180.0]
     rotation: 0
-    state: enabled
+    state: disabled
 - name: network_tcp_sink_0
   id: network_tcp_sink
   parameters:
@@ -154,7 +252,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [520, 184.0]
+    coordinate: [632, 200.0]
     rotation: 0
     state: enabled
 - name: qtgui_freq_sink_x_0
@@ -240,11 +338,17 @@ blocks:
     state: enabled
 
 connections:
+- [analog_sig_source_x_0, '0', blocks_multiply_xx_0, '1']
 - [audio_source_0, '0', hilbert_fc_0, '0']
-- [hilbert_fc_0, '0', pfb_arb_resampler_xxx_0, '0']
+- [blocks_multiply_const_vxx_0, '0', network_tcp_sink_0, '0']
+- [blocks_multiply_xx_0, '0', pfb_arb_resampler_xxx_0, '0']
+- [blocks_wavfile_source_0, '0', hilbert_fc_0, '0']
+- [hilbert_fc_0, '0', blocks_multiply_xx_0, '0']
 - [low_pass_filter_0, '0', network_tcp_sink_0, '0']
 - [low_pass_filter_0, '0', qtgui_freq_sink_x_0, '0']
+- [pfb_arb_resampler_xxx_0, '0', blocks_multiply_const_vxx_0, '0']
 - [pfb_arb_resampler_xxx_0, '0', low_pass_filter_0, '0']
+- [pfb_arb_resampler_xxx_0, '0', qtgui_freq_sink_x_0, '0']
 
 metadata:
   file_format: 1

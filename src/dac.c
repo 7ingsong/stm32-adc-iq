@@ -68,7 +68,7 @@ void dac_init() {
 
     
     TIM_TimeBaseStructInit(&TIM_TimeBaseStructure); 
-    TIM_TimeBaseStructure.TIM_Period = 720-1; // FIX!!!
+    TIM_TimeBaseStructure.TIM_Period = 1125-1; // 72e6/1125 = 64000 Hz
     TIM_TimeBaseStructure.TIM_Prescaler = 1-1;//9-1;
     TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;    
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;  

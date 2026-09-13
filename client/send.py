@@ -27,15 +27,39 @@ def cf32_bytes_to_u12(data: bytes) -> bytes:
 
 
 class GnuRadioSink:
-    def __init__(self,host: str="127.0.0.1", port: int=2000):
+    """
+    Принимает cf32 IQ-поток от GNU Radio (блок TCP Sink, слушающий на host:port)
+    и отдаёт его в том же формате get_iq(n_samples), что и остальные генераторы.
+    """
+    def __init__(self, host: str = "127.0.0.1", port: int = 2000, bufsize: int = 65536):
         self.host = host
         self.port = port
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.bufsize = bufsize
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((self.host, self.port))
+        self._buf = bytearray()
 
-    def recv(self, size: int):
-        data, _ = self.sock.recvfrom(size)
-        return data
+    def _recv_exact(self, size: int) -> bytes:
+        # TCP - потоковый протокол, поэтому границы recv() не совпадают
+        # с границами n_samples: копим данные в буфере, пока не наберём нужное количество байт
+        while len(self._buf) < size:
+            data = self.sock.recv(self.bufsize)
+            if not data:
+                raise ConnectionError("GNU Radio TCP source closed the connection")
+            self._buf.extend(data)
+        chunk = bytes(self._buf[:size])
+        del self._buf[:size]
+        return chunk
+
+    def get_iq(self, n_samples):
+        # каждый отсчёт IQ = 2 x float32 (I, Q) = 8 байт
+        raw = self._recv_exact(n_samples * 8)
+        return cf32_bytes_to_u12(raw)
+
+    def close(self):
+        self.sock.close()
+
+
 
 def calc_inc(f_out, f_clk):
     return int((1 << 32) * f_out / f_clk)
@@ -134,8 +158,9 @@ class GenMeander:
 def main():
     #test()
 
-    dds = SinTxNoLUT(f_out=1000, f_clk=32000)
-    # dds = GenMeander(f_out=1000, f_clk=32000)
+    # dds = GnuRadioSink(host="127.0.0.1", port=2000)
+    dds = SinTx(f_out=1000, f_clk=32000)
+    # dds = GenMeander()
     port = auto_detect_port()
     print(f"Using port {port}")
     client = DeviceClient(port=port, baudrate=50000000, timeout=3.0)
@@ -146,18 +171,27 @@ def main():
         iq_data = b""
         request_size2, overflow2, tx_usb_overflow2, rx_usb_overflow2 = 0, 0, 0, 0
         while True:
-            SB = 512
+            SB = 256
             
             request_size, overflow, tx_usb_overflow, rx_usb_overflow = client.req_iq(payload=iq_data)
             #print(f"Send IQ response: {request_size}, {overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
             if request_size>=SB:
                 n = request_size//SB
-                # k = request_size%SB
+                k = request_size%SB  # остаток места (< SB), отдаём вместе со следующим req_iq
                 for i in range(n-1):
                     iq_data = dds.get_iq(SB//4)
                     client.send_iq(payload=iq_data)
 
-                iq_data = dds.get_iq(SB//4)
+                last_chunk = dds.get_iq(SB//4)
+                if k>=4:
+                    # кадр не может быть больше SB (FRAME_MAX_PAYLOAD на прошивке),
+                    # поэтому досылаем полный чанк сейчас, а остаток k откладываем
+                    client.send_iq(payload=last_chunk)
+                    iq_data = dds.get_iq(k//4)
+                else:
+                    iq_data = last_chunk
+            elif request_size>=4:
+                iq_data = dds.get_iq(request_size//4)
             else:
                 iq_data = b""
 
@@ -203,5 +237,4 @@ if __name__ == "__main2__":
     print("Q values:", coss)
 
 if __name__ == "__main__":
-    b = cf32_bytes_to_u12(b"\x00\x00\x00\x00\x00\x00\x00\x00")  # Example usage
     main()

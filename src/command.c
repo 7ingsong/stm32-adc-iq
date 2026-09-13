@@ -82,72 +82,77 @@ static void parser_reset() {
 }
 
 void command_dispatch(const dispatch_frame_t dispatch_frame) {
+    static uint8_t chunk[64];
     uint8_t data;
+    int chunk_len;
 
     if (usb_rx_overflow != transport_get_rx_overflow()) {
         command_send_error(0, ERR_FIFO_OVERFLOW, 0);
         usb_rx_overflow = transport_get_rx_overflow();
     }
 
-    while (transport_recv(&data, 1)) {
-        switch (parser_state) {
-            case RX_WAIT_MAGIC_0:
-                if (data == FRAME_MAGIC_0) {
-                    parser_state = RX_WAIT_MAGIC_1;
-                }
-                break;
-
-            case RX_WAIT_MAGIC_1:
-                if (data == FRAME_MAGIC_1) {
-                    parser_state = RX_READ_HEADER;
-                    header_pos = 0;
-                } else if (data != FRAME_MAGIC_0) {
-                    parser_state = RX_WAIT_MAGIC_0;
-                }
-                break;
-
-            case RX_READ_HEADER:
-                header_buf[header_pos++] = data;
-                if (header_pos == sizeof(header_buf)) {
-                    rx_frame.command.cmd = header_buf[0];
-                    rx_frame.command.seq = header_buf[1];
-                    rx_frame.command.len = ((uint16_t)header_buf[3] << 8) | header_buf[2];
-                    rx_frame.crc = ((uint16_t)header_buf[5] << 8) | header_buf[4];
-
-                    if (rx_frame.command.len > FRAME_MAX_PAYLOAD) {
-                        command_send_error(rx_frame.command.seq, ERR_BAD_LENGTH,
-                                           rx_frame.command.len & 0xFF);
-                        parser_reset();
-                        break;
+    while ((chunk_len = transport_recv(chunk, sizeof(chunk))) > 0) {
+        for (int chunk_pos = 0; chunk_pos < chunk_len; chunk_pos++) {
+            data = chunk[chunk_pos];
+            switch (parser_state) {
+                case RX_WAIT_MAGIC_0:
+                    if (data == FRAME_MAGIC_0) {
+                        parser_state = RX_WAIT_MAGIC_1;
                     }
+                    break;
 
-                    payload_pos = 0;
-                    parser_state = RX_READ_PAYLOAD;
-                    if (rx_frame.command.len == 0) {
-                        if (frame_checksum(rx_frame.command.cmd, rx_frame.command.seq, 0,
-                                           rx_frame.payload) != rx_frame.crc) {
-                            command_send_error(rx_frame.command.seq, ERR_BAD_CRC,
-                                               rx_frame.command.cmd);
+                case RX_WAIT_MAGIC_1:
+                    if (data == FRAME_MAGIC_1) {
+                        parser_state = RX_READ_HEADER;
+                        header_pos = 0;
+                    } else if (data != FRAME_MAGIC_0) {
+                        parser_state = RX_WAIT_MAGIC_0;
+                    }
+                    break;
+
+                case RX_READ_HEADER:
+                    header_buf[header_pos++] = data;
+                    if (header_pos == sizeof(header_buf)) {
+                        rx_frame.command.cmd = header_buf[0];
+                        rx_frame.command.seq = header_buf[1];
+                        rx_frame.command.len = ((uint16_t)header_buf[3] << 8) | header_buf[2];
+                        rx_frame.crc = ((uint16_t)header_buf[5] << 8) | header_buf[4];
+
+                        if (rx_frame.command.len > FRAME_MAX_PAYLOAD) {
+                            command_send_error(rx_frame.command.seq, ERR_BAD_LENGTH,
+                                               rx_frame.command.len & 0xFF);
+                            parser_reset();
+                            break;
+                        }
+
+                        payload_pos = 0;
+                        parser_state = RX_READ_PAYLOAD;
+                        if (rx_frame.command.len == 0) {
+                            if (frame_checksum(rx_frame.command.cmd, rx_frame.command.seq, 0,
+                                               rx_frame.payload) != rx_frame.crc) {
+                                command_send_error(rx_frame.command.seq, ERR_BAD_CRC,
+                                                   rx_frame.command.cmd);
+                            } else {
+                                dispatch_frame(&rx_frame);
+                            }
+                            parser_reset();
+                        }
+                    }
+                    break;
+
+                case RX_READ_PAYLOAD:
+                    rx_frame.payload[payload_pos++] = data;
+                    if (payload_pos == rx_frame.command.len) {
+                        if (frame_checksum(rx_frame.command.cmd, rx_frame.command.seq,
+                                           rx_frame.command.len, rx_frame.payload) != rx_frame.crc) {
+                            command_send_error(rx_frame.command.seq, ERR_BAD_CRC, rx_frame.command.cmd);
                         } else {
                             dispatch_frame(&rx_frame);
                         }
                         parser_reset();
                     }
-                }
-                break;
-
-            case RX_READ_PAYLOAD:
-                rx_frame.payload[payload_pos++] = data;
-                if (payload_pos == rx_frame.command.len) {
-                    if (frame_checksum(rx_frame.command.cmd, rx_frame.command.seq,
-                                       rx_frame.command.len, rx_frame.payload) != rx_frame.crc) {
-                        command_send_error(rx_frame.command.seq, ERR_BAD_CRC, rx_frame.command.cmd);
-                    } else {
-                        dispatch_frame(&rx_frame);
-                    }
-                    parser_reset();
-                }
-                break;
+                    break;
+            }
         }
     }
 }

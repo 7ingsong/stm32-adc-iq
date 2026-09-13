@@ -61,9 +61,7 @@ void on_dac(uint32_t *buf, int n) {
     int size = n * sizeof(uint32_t);
     int filled_space = fifo_get_filled(&fifo_dac);
     if (filled_space >= size) {
-        __disable_irq();
         fifo_read(&fifo_dac, (uint8_t*)buf, size);
-        __enable_irq();
     }else{
         resp_iq_stream_tx_info.consumtion_fail++;
     }
@@ -99,9 +97,7 @@ void command_handler(const frame_t* frame) {
             handle_ping(frame);
             break;
         case CMD_IQ_STREAM_TX:
-            __disable_irq();
             fifo_write(&fifo_dac, frame->payload, frame->command.len);
-            __enable_irq();
             // resp_iq_stream_tx_info.free_space = fifo_get_free_space(&fifo_dac);
             // resp_iq_stream_tx_info.tx_usb_overflow = transport_get_tx_overflow();
             // resp_iq_stream_tx_info.rx_usb_overflow = transport_get_rx_overflow();
@@ -116,9 +112,7 @@ void command_handler(const frame_t* frame) {
             break;
 
         case CMD_IQ_STREAM_TX_INFO:
-            __disable_irq();
             fifo_write(&fifo_dac, frame->payload, frame->command.len);
-            __enable_irq();
             resp_iq_stream_tx_info.free_space = fifo_get_free_space(&fifo_dac);
             resp_iq_stream_tx_info.tx_usb_overflow = transport_get_tx_overflow();
             resp_iq_stream_tx_info.rx_usb_overflow = fifo_get_overflow(&fifo_dac); //transport_get_rx_overflow();
