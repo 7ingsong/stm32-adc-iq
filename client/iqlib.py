@@ -13,6 +13,9 @@ CMD_PING = 0x01
 CMD_IQ_STREAM = 0x30
 CMD_IQ_STREAM_TX = 0x31
 CMD_IQ_STREAM_TX_INFO = 0x32
+CMD_IQ_STREAM_TX_START = 0x33
+CMD_IQ_STREAM_TX_STOP = 0x34
+
 
 RESP_ACK = 0x80
 RESP_ERR = 0x81
@@ -207,6 +210,12 @@ class DeviceClient:
 
     def ping(self):
         return self.req_command(CMD_PING, cmd_resp=RESP_ACK)
+
+    def start_tx(self):
+        return self.req_command(CMD_IQ_STREAM_TX_START, cmd_resp=RESP_ACK)
+
+    def stop_tx(self):
+        return self.req_command(CMD_IQ_STREAM_TX_STOP, cmd_resp=RESP_ACK)
 
     def req_iq(self, payload=bytes()):
         resp = self.req_command(CMD_IQ_STREAM_TX_INFO, cmd_resp=RESP_IQ_STREAM_TX_INFO, payload=payload)

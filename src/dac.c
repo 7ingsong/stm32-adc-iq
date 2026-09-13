@@ -68,7 +68,7 @@ void dac_init() {
 
     
     TIM_TimeBaseStructInit(&TIM_TimeBaseStructure); 
-    TIM_TimeBaseStructure.TIM_Period = 1125-1;//1125-1; // 72e6/1125 = 64000 Hz
+    TIM_TimeBaseStructure.TIM_Period = 1125-1; // 72e6/1125 = 64000 HZ
     TIM_TimeBaseStructure.TIM_Prescaler = 1-1;//9-1;
     TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;    
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;  
@@ -98,7 +98,9 @@ void dac_init() {
     DMA_Init(DMA2_Channel4, &DMA_InitStructure);
 
     DMA_ITConfig(DMA2_Channel4, DMA_IT_HT | DMA_IT_TC, ENABLE);
-    
+}
+
+void dac_start() {
     DMA_Cmd(DMA2_Channel4, ENABLE);
 
     DAC_Cmd(DAC_Channel_1, ENABLE);
@@ -106,6 +108,16 @@ void dac_init() {
 
     DAC_DMACmd(DAC_Channel_2, ENABLE);
     TIM_Cmd(TIM2, ENABLE);
+}
+
+void dac_stop() {
+    TIM_Cmd(TIM2, DISABLE);
+    DAC_DMACmd(DAC_Channel_2, DISABLE);
+
+    DAC_Cmd(DAC_Channel_1, DISABLE);
+    DAC_Cmd(DAC_Channel_2, DISABLE);
+
+    DMA_Cmd(DMA2_Channel4, DISABLE);
 }
 
 void dac_dispatch() {

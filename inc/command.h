@@ -17,6 +17,8 @@ enum {
     CMD_IQ_STREAM = 0x30,
     CMD_IQ_STREAM_TX = 0x31,
     CMD_IQ_STREAM_TX_INFO = 0x32,
+    CMD_IQ_STREAM_TX_START = 0x33,
+    CMD_IQ_STREAM_TX_STOP = 0x34,
 };
 
 enum {

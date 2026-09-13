@@ -173,7 +173,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [648, 164.0]
+    coordinate: [632, 188.0]
     rotation: 0
     state: enabled
 - name: network_udp_source_0
@@ -217,7 +217,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [776, 256.0]
+    coordinate: [784, 232.0]
     rotation: 0
     state: enabled
 - name: qtgui_freq_sink_x_0

@@ -5,6 +5,6 @@
 #define ADC_N_SAMPLES (9*1024)
 
 void adc_init();
-void on_adc(uint16_t *, int);
+void on_adc(uint32_t *, int);
 void adc_dispatch();
 #endif

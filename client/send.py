@@ -1,20 +1,15 @@
 from iqlib import DeviceClient, auto_detect_port
-
+import time
 import math
 import socket
 import numpy as np
+import matplotlib.pyplot as plt
 
 def cf32_bytes_to_u12(data: bytes) -> bytes:
-    """
-    data: bytes, содержащие interleaved float32 I,Q,I,Q,... (cf32)
-    return: bytes, где каждый I и Q представлен как unsigned 12-bit
-            значение, упакованное в 2 байта (little-endian, старшие 4 бита = 0)
-    """
-    # интерпретируем сырые байты как float32
     f32 = np.frombuffer(data, dtype='<f4')  # little-endian float32
 
     if f32.size % 2 != 0:
-        raise ValueError("Количество float32 значений должно быть чётным (I,Q пары)")
+        raise ValueError("Number of float32 values should be even (I,Q pairs)")
 
     # clip к [-1.0, 1.0]
     clipped = np.clip(f32, -1.0, 1.0)
@@ -27,10 +22,6 @@ def cf32_bytes_to_u12(data: bytes) -> bytes:
 
 
 class GnuRadioSink:
-    """
-    Принимает cf32 IQ-поток от GNU Radio (блок TCP Sink, слушающий на host:port)
-    и отдаёт его в том же формате get_iq(n_samples), что и остальные генераторы.
-    """
     def __init__(self, host: str = "127.0.0.1", port: int = 2000, bufsize: int = 65536):
         self.host = host
         self.port = port
@@ -40,8 +31,6 @@ class GnuRadioSink:
         self._buf = bytearray()
 
     def _recv_exact(self, size: int) -> bytes:
-        # TCP - потоковый протокол, поэтому границы recv() не совпадают
-        # с границами n_samples: копим данные в буфере, пока не наберём нужное количество байт
         while len(self._buf) < size:
             data = self.sock.recv(self.bufsize)
             if not data:
@@ -52,7 +41,6 @@ class GnuRadioSink:
         return chunk
 
     def get_iq(self, n_samples):
-        # каждый отсчёт IQ = 2 x float32 (I, Q) = 8 байт
         raw = self._recv_exact(n_samples * 8)
         return cf32_bytes_to_u12(raw)
 
@@ -154,57 +142,7 @@ class GenMeander:
             iq_data.extend(c.to_bytes(2, 'little'))
         return iq_data
 
-
-def main():
-    #test()
-
-    dds = GnuRadioSink(host="127.0.0.1", port=2000)
-    # dds = SinTx(f_out=8000, f_clk=64000)
-    # dds = GenMeander()
-    port = auto_detect_port()
-    print(f"Using port {port}")
-    client = DeviceClient(port=port, baudrate=50000000, timeout=3.0)
-
-    try:
-        resp = client.ping()
-        print(f"Ping response: {resp.decode()}")
-        iq_data = b""
-        request_size2, overflow2, tx_usb_overflow2, rx_usb_overflow2 = 0, 0, 0, 0
-        while True:
-            SB = 256
-            
-            request_size, overflow, tx_usb_overflow, rx_usb_overflow = client.req_iq(payload=iq_data)
-            #print(f"Send IQ response: {request_size}, {overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
-            if request_size>=SB:
-                n = request_size//SB
-                k = request_size%SB  # остаток места (< SB), отдаём вместе со следующим req_iq
-                for i in range(n-1):
-                    iq_data = dds.get_iq(SB//4)
-                    client.send_iq(payload=iq_data)
-
-                last_chunk = dds.get_iq(SB//4)
-                if k>=4:
-                    # кадр не может быть больше SB (FRAME_MAX_PAYLOAD на прошивке),
-                    # поэтому досылаем полный чанк сейчас, а остаток k откладываем
-                    client.send_iq(payload=last_chunk)
-                    iq_data = dds.get_iq(k//4)
-                else:
-                    iq_data = last_chunk
-            elif request_size>=4:
-                iq_data = dds.get_iq(request_size//4)
-            else:
-                iq_data = b""
-
-            if overflow2 != overflow or tx_usb_overflow2 != tx_usb_overflow or rx_usb_overflow2 != rx_usb_overflow:
-                print(f"Send IQ response: {request_size}, {overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
-                overflow2, tx_usb_overflow2, rx_usb_overflow2 = overflow, tx_usb_overflow, rx_usb_overflow
-
-    finally:
-        client.close()
-
-import matplotlib.pyplot as plt
-
-if __name__ == "__main2__":
+def draw_plot():
     # --- Parameters: edit these as needed ---
     f_out = 16
     f_clk = 32
@@ -235,6 +173,57 @@ if __name__ == "__main2__":
  
     print("I values:", sins)
     print("Q values:", coss)
+
+def main():
+    #test()
+
+    # dds = GnuRadioSink(host="127.0.0.1", port=2000)
+    # dds = SinTx(f_out=3000, f_clk=64000)
+    dds = SinTxNoLUT(f_out=1000, f_clk=64000)
+    
+    # dds = GenMeander()
+    port = auto_detect_port()
+    print(f"Using port {port}")
+    client = DeviceClient(port=port, baudrate=50000000, timeout=3.0)
+
+    try:
+        resp = client.ping()
+        print(f"Ping response: {resp.decode()}")
+        
+        client.start_tx()
+        iq_data = b""
+        request_size2, overflow2, tx_usb_overflow2, rx_usb_overflow2 = 0, 0, 0, 0
+        deadline = time.time() + 60
+        while (deadline-time.time())>0:
+            SB = 256
+            
+            request_size, overflow, tx_usb_overflow, rx_usb_overflow = client.req_iq(payload=iq_data)
+            #print(f"Send IQ response: {request_size}, {overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
+            if request_size>=SB:
+                n = request_size//SB
+                k = request_size%SB
+                for i in range(n-1):
+                    iq_data = dds.get_iq(SB//4)
+                    client.send_iq(payload=iq_data)
+
+                last_chunk = dds.get_iq(SB//4)
+                if k>=4:
+                    client.send_iq(payload=last_chunk)
+                    iq_data = dds.get_iq(k//4)
+                else:
+                    iq_data = last_chunk
+            elif request_size>=4:
+                iq_data = dds.get_iq(request_size//4)
+            else:
+                iq_data = b""
+
+            if overflow2 != overflow or tx_usb_overflow2 != tx_usb_overflow or rx_usb_overflow2 != rx_usb_overflow:
+                print(f"Send IQ response: {request_size}, {overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
+                overflow2, tx_usb_overflow2, rx_usb_overflow2 = overflow, tx_usb_overflow, rx_usb_overflow
+        client.stop_tx()
+    finally:
+        client.close()
+
 
 if __name__ == "__main__":
     main()
