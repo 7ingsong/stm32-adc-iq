@@ -1,25 +1,11 @@
-from iqlib import DeviceClient, auto_detect_port
+from iqlib import DeviceClient, cf32_bytes_to_u12
 import time
 import math
 import socket
-import numpy as np
 import matplotlib.pyplot as plt
 
-def cf32_bytes_to_u12(data: bytes) -> bytes:
-    f32 = np.frombuffer(data, dtype='<f4')  # little-endian float32
-
-    if f32.size % 2 != 0:
-        raise ValueError("Number of float32 values should be even (I,Q pairs)")
-
-    # clip к [-1.0, 1.0]
-    clipped = np.clip(f32, -1.0, 1.0)
-
-    # [-1,1] -> [0,4095], 0.0 -> 2048
-    u12 = np.rint(clipped * 2047.0 + 2048.0).astype(np.int32)
-    u12 = np.clip(u12, 0, 4095).astype('<u2')  # little-endian uint16
-
-    return u12.tobytes()
-
+def calc_inc(f_out, f_clk):
+    return int((1 << 32) * f_out / f_clk)
 
 class GnuRadioSink:
     def __init__(self, host: str = "127.0.0.1", port: int = 2000, bufsize: int = 65536):
@@ -48,14 +34,10 @@ class GnuRadioSink:
         self.sock.close()
 
 
-
-def calc_inc(f_out, f_clk):
-    return int((1 << 32) * f_out / f_clk)
-
 class SinTxNoLUT:
     BITS = 12  # DAC resolution (12-bit: 0..4095)
     
-    def __init__(self, f_out=1_000, f_clk=32_000):
+    def __init__(self, f_out=1_000, f_clk=64_000):
         self.PHASE_INC = calc_inc(f_out, f_clk)
         self.phase = 0
         
@@ -90,7 +72,7 @@ class SinTxNoLUT:
 class SinTx:
     BITS = 12
     
-    def __init__(self, f_out=1_000, f_clk=32_000, N = 32):
+    def __init__(self, f_out=1_000, f_clk=64_000, N = 32):
         self.N = N
         self.PHASE_INC = calc_inc(f_out, f_clk)
         self.phase = 0
@@ -119,19 +101,24 @@ class SinTx:
 
 class GenMeander:
     BITS = 12  # DAC resolution (12-bit: 0..4095)
-    
-    def __init__(self, f_out=1_000, f_clk=32_000):
-        self.index = 0
-        
+
+    def __init__(self, f_out=1_000, f_clk=64_000):
+        self.PHASE_INC = calc_inc(f_out, f_clk)
+        self.phase = 0
+
         self.max_val = (1 << self.BITS) - 1  # 4095
-        self.mid_val = self.max_val / 2.0    # 2047.5
 
     def next(self):
-        self.index = (self.index + 1) % 2
-        
-        sin_val = round(self.max_val*self.index)
-        cos_val = round(self.max_val*(1-self.index))
-        
+        # 1. Update 32-bit phase accumulator
+        self.phase = (self.phase + self.PHASE_INC) & 0xFFFFFFFF
+
+        # 2. I: high for first half of the cycle, low for the second half
+        sin_val = self.max_val if self.phase < (1 << 31) else 0
+
+        # 3. Q: same square wave shifted by 90 degrees (quarter cycle)
+        cos_phase = (self.phase + (1 << 30)) & 0xFFFFFFFF
+        cos_val = self.max_val if cos_phase < (1 << 31) else 0
+
         return sin_val, cos_val
 
     def get_iq(self, n_samples):
@@ -175,54 +162,47 @@ def draw_plot():
     print("Q values:", coss)
 
 def main():
-    #test()
-
     # dds = GnuRadioSink(host="127.0.0.1", port=2000)
     # dds = SinTx(f_out=3000, f_clk=64000)
     dds = SinTxNoLUT(f_out=1000, f_clk=64000)
     
-    # dds = GenMeander()
-    port = auto_detect_port()
-    print(f"Using port {port}")
-    client = DeviceClient(port=port, baudrate=50000000, timeout=3.0)
+    # dds = GenMeander(f_out=1000, f_clk=64000)
 
-    try:
-        resp = client.ping()
-        print(f"Ping response: {resp.decode()}")
-        
-        client.start_tx()
-        iq_data = b""
-        consumtion_fail2, dac_overflow2, tx_usb_overflow2, rx_usb_overflow2 = 0, 0, 0, 0
-        deadline = time.time() + 10 #60
-        while (deadline-time.time())>0:
-            #BS = 256
-            
-            BS, request_size, consumtion_fail, dac_overflow, tx_usb_overflow, rx_usb_overflow = client.cmd_iq_stream_tx_info(payload=iq_data)
-            # print(f"Send IQ response: {request_size}, {consumtion_fail}, {dac_overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
-            if request_size>=BS:
-                n = request_size//BS
-                k = request_size%BS
-                for i in range(n-1):
-                    iq_data = dds.get_iq(BS//4)
-                    client.send_iq_stream_tx(payload=iq_data)
+    client = DeviceClient()
+    print(f"Using port {client.port}")
 
-                last_chunk = dds.get_iq(BS//4)
-                if k>=4:
-                    client.send_iq_stream_tx(payload=last_chunk)
-                    iq_data = dds.get_iq(k//4)
-                else:
-                    iq_data = last_chunk
-            elif request_size>=4:
-                iq_data = dds.get_iq(request_size//4)
+    resp = client.ping()
+    print(f"Ping response: {resp.decode()}")
+    
+    client.start_tx()
+    iq_data = b""
+    consumtion_fail2, dac_overflow2, tx_usb_overflow2, rx_usb_overflow2 = 0, 0, 0, 0
+    deadline = time.time() + 10 #60
+    while (deadline-time.time())>0:        
+        BS, request_size, consumtion_fail, dac_overflow, tx_usb_overflow, rx_usb_overflow = client.cmd_iq_stream_tx_info(payload=iq_data)
+        # print(f"Send IQ response: {request_size}, {consumtion_fail}, {dac_overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
+        if request_size>=BS:
+            n = request_size//BS
+            k = request_size%BS
+            for _ in range(n-1):
+                iq_data = dds.get_iq(BS//4)
+                client.send_iq_stream_tx(payload=iq_data)
+
+            last_chunk = dds.get_iq(BS//4)
+            if k>=4:
+                client.send_iq_stream_tx(payload=last_chunk)
+                iq_data = dds.get_iq(k//4)
             else:
-                iq_data = b""
+                iq_data = last_chunk
+        elif request_size>=4:
+            iq_data = dds.get_iq(request_size//4)
+        else:
+            iq_data = b""
 
-            if dac_overflow2 != dac_overflow or tx_usb_overflow2 != tx_usb_overflow or rx_usb_overflow2 != rx_usb_overflow or consumtion_fail != consumtion_fail2:
-                print(f"Send IQ response: {request_size}, {dac_overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
-                dac_overflow2, tx_usb_overflow2, rx_usb_overflow2, consumtion_fail2 = dac_overflow, tx_usb_overflow, rx_usb_overflow, consumtion_fail
-        client.stop_tx()
-    finally:
-        client.close()
+        if dac_overflow2 != dac_overflow or tx_usb_overflow2 != tx_usb_overflow or rx_usb_overflow2 != rx_usb_overflow or consumtion_fail != consumtion_fail2:
+            print(f"Send IQ response: {request_size}, {dac_overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
+            dac_overflow2, tx_usb_overflow2, rx_usb_overflow2, consumtion_fail2 = dac_overflow, tx_usb_overflow, rx_usb_overflow, consumtion_fail
+    client.stop_tx()
 
 
 if __name__ == "__main__":

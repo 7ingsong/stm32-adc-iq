@@ -1,31 +1,29 @@
-from iqlib import DeviceClient, auto_detect_port
+from iqlib import DeviceClient, u12_bytes_to_cf32
 import socket
 import time
 
 def main():
-    port = auto_detect_port()
-    print(f"Using port {port}")
-    client = DeviceClient(port=port, baudrate=50000000, timeout=3.0)
+    client = DeviceClient()
+    print(f"Using port {client.port}")
 
     sock = socket.socket()
     sock.connect(("127.0.0.1", 2000))
-    try:
-        resp = client.ping()
-        print(f"Ping response: {resp.decode()}")
-        client.start_rx()
-        f = open ("samples.cf32","wb+")
-        deadline = time.time()+60
-        while (deadline-time.time())>0:
-            data = client.get_rx_iq_samples()
-            iq = client.convert_all(data)
-            f.write(iq)
-            f.flush()
-            sock.sendall(iq)
 
-        client.stop_rx()
+    f = open ("samples.cf32","wb+")
 
-    finally:
-        client.close()
+    resp = client.ping()
+    print(f"Ping response: {resp.decode()}")
+    client.start_rx()
+    
+    deadline = time.time()+10
+    while (deadline-time.time())>0:
+        data = client.get_rx_iq_samples()
+        iq = u12_bytes_to_cf32(data)
+        f.write(iq)
+        f.flush()
+        sock.sendall(iq)
+
+    client.stop_rx()
 
 
 if __name__ == "__main__":

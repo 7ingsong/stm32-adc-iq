@@ -1,7 +1,7 @@
 import time
 import struct
 import serial
-import socket
+import numpy as np
 from serial.tools import list_ports
 
 
@@ -85,6 +85,28 @@ def auto_detect_port():
 
     raise SystemExit("multiple possible USB CDC ports found; pass --port explicitly")
 
+def cf32_bytes_to_u12(data: bytes) -> bytes:
+    f32 = np.frombuffer(data, dtype='<f4')  # little-endian float32
+
+    if f32.size % 2 != 0:
+        raise ValueError("Number of float32 values should be even (I,Q pairs)")
+
+    # clip к [-1.0, 1.0]
+    clipped = np.clip(f32, -1.0, 1.0)
+
+    # [-1,1] -> [0,4095], 0.0 -> 2048
+    u12 = np.rint(clipped * 2047.0 + 2048.0).astype(np.int32)
+    u12 = np.clip(u12, 0, 4095).astype('<u2')  # little-endian uint16
+
+    return u12.tobytes()
+
+def u12_bytes_to_cf32(data: bytes) -> bytes:
+    u12 = np.frombuffer(data, dtype='<u2')  # little-endian uint16
+
+    # [0,4095] -> [-1,1], 2048 -> 0.0
+    f32 = ((u12.astype(np.float32) - 2048.0) / 2047.0).astype('<f4')
+
+    return f32.tobytes()
 
 def checksum16(init, data):
     total = init & 0xFFFF
@@ -120,7 +142,10 @@ def build_frame(cmd, seq, payload=b""):
 
 
 class DeviceClient:
-    def __init__(self, port, baudrate, timeout):
+    def __init__(self, port=None, baudrate=115200, timeout = 3.0):
+        if port==None:
+            port = auto_detect_port()
+        self.port = port
         self.serial = serial.Serial(port=port, baudrate=baudrate, timeout=timeout)
         self.seq = 1
         self.queue_data = bytearray()
@@ -265,48 +290,6 @@ class DeviceClient:
 
     def send_iq_stream_tx(self, payload=bytes()):
         self.send(CMD_IQ_STREAM_TX, payload=payload)
-
-    def pop(self, n):
-        payload = self.queue_data[:n]
-        self.queue_data = self.queue_data[n:]
-        return payload
-
-    def get_size(self):
-        return len(self.queue_data)
-
-    def push(self, data):
-        self.queue_data.extend(data)
-
-    def conv2cf32(self, raw):
-        v0,=struct.unpack("<H",raw)
-        v = float(v0)/0x1000
-        v = v - 0.5
-        return struct.pack("<f", v)
-
-
-    def convert_all(self,data):
-        ls = []
-        n = len(data)//2
-        for i in range(n):
-            v=self.conv2cf32(data[2*i:2*i+2])
-            ls.append(v)
-        return b''.join(ls)
-
-
-    def process(self):
-        hdr = self.pop(8)
-        magic,cmd,seq,size,crc =struct.unpack("<2sBBHH", hdr)
-        if magic != FRAME_MAGIC:
-            raise ProtocolError(f"invalid magic: {magic.hex()}")
-
-        payload = self.pop(size)
-        crc_calc = frame_checksum(cmd, seq, payload)
-        if crc != crc_calc:
-            raise ProtocolError(f"invalid crc: {crc:04x} != {crc_calc:04x}")
-
-        #print(f"frame seq={seq} length={len(payload)}")
-
-        return self.convert_all(payload)
 
 if __name__ == "__main__":
     pass
