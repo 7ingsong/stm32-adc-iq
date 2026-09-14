@@ -100,7 +100,7 @@ blocks:
     bus_structure: null
     coordinate: [216, 292.0]
     rotation: 0
-    state: enabled
+    state: disabled
 - name: audio_sink_0
   id: audio_sink
   parameters:
@@ -151,7 +151,7 @@ blocks:
     bus_structure: null
     coordinate: [496, 228.0]
     rotation: 0
-    state: enabled
+    state: disabled
 - name: low_pass_filter_0
   id: low_pass_filter
   parameters:
@@ -175,7 +175,7 @@ blocks:
     bus_structure: null
     coordinate: [632, 124.0]
     rotation: 0
-    state: disabled
+    state: enabled
 - name: network_tcp_source_0
   id: network_tcp_source
   parameters:
@@ -295,7 +295,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [512, 76.0]
+    coordinate: [760, 68.0]
     rotation: 0
     state: enabled
 
@@ -303,10 +303,11 @@ connections:
 - [analog_sig_source_x_0, '0', blocks_multiply_xx_0, '1']
 - [blocks_complex_to_imag_0, '0', audio_sink_0, '0']
 - [blocks_multiply_xx_0, '0', low_pass_filter_0, '0']
-- [blocks_multiply_xx_0, '0', pfb_arb_resampler_xxx_0, '0']
 - [blocks_multiply_xx_0, '0', qtgui_freq_sink_x_0, '0']
 - [low_pass_filter_0, '0', pfb_arb_resampler_xxx_0, '0']
 - [network_tcp_source_0, '0', blocks_multiply_xx_0, '0']
+- [network_tcp_source_0, '0', low_pass_filter_0, '0']
+- [network_tcp_source_0, '0', qtgui_freq_sink_x_0, '0']
 - [pfb_arb_resampler_xxx_0, '0', blocks_complex_to_imag_0, '0']
 
 metadata:
