@@ -16,18 +16,12 @@ def main():
         f = open ("samples.cf32","wb+")
         deadline = time.time()+60
         while (deadline-time.time())>0:
-            # data = client.req_rx_iq()
-            # iq = client.convert_all(data)
-            # sock.sendall(iq)
-            data = client.serial.read(2048*10)
-            client.push(data)
-            while client.get_size() >= (0x108*2):
-                iq = client.process()
-                f.write(iq)
-                f.flush()
+            data = client.get_rx_iq_samples()
+            iq = client.convert_all(data)
+            f.write(iq)
+            f.flush()
+            sock.sendall(iq)
 
-                # print(f"iq length={len(iq)}")
-                sock.sendall(iq)
         client.stop_rx()
 
     finally:

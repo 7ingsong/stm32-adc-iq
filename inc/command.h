@@ -6,7 +6,7 @@
 #define FRAME_MAGIC_1 0x5A
 #define PACKAGE_HEADER_SIZE 8
 #define FRAME_HEADER_SIZE 6
-#define FRAME_MAX_PAYLOAD 256 //512
+#define FRAME_MAX_PAYLOAD 256
 
 enum {
     CMD_PING = 0x01,
@@ -21,7 +21,6 @@ enum {
     CMD_IQ_STREAM_TX_STOP = 0x34,
     CMD_IQ_STREAM_RX_START = 0x35,
     CMD_IQ_STREAM_RX_STOP = 0x36,
-    CMD_IQ_STREAM_RX = 0x37,
 };
 
 enum {
@@ -32,9 +31,8 @@ enum {
     RESP_EEPROM_WRITE = 0x91,
     RESP_FPGA_CONFIG = 0xA0,
     // RESP_IQ_STREAM = 0xB0,
-    RESP_IQ_DATA = 0xB1,
+    RESP_IQ_STREAM_RX = 0xB1,
     RESP_IQ_STREAM_TX_INFO = 0xB2,
-    RESP_IQ_STREAM_RX = 0xB3,
 };
 
 enum {

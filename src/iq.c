@@ -13,18 +13,15 @@ typedef struct __attribute__((packed)) {
 } iq_stream_response_t;
 
 typedef struct __attribute__((packed)) {
-    uint32_t free_space;
-    uint32_t consumtion_fail;
-    uint32_t tx_usb_overflow;
-    uint32_t rx_usb_overflow;
+    uint16_t bs;    
+    uint16_t free_space;
+    uint16_t consumtion_fail;
+    uint16_t dac_overflow;
+    uint16_t tx_usb_overflow;
+    uint16_t rx_usb_overflow;
 } usb_stream_info_t;
 
-static usb_stream_info_t resp_iq_stream_tx_info = {
-    .free_space = 0,
-    .consumtion_fail = 0,
-    .tx_usb_overflow = 0,
-    .rx_usb_overflow = 0
-};
+static usb_stream_info_t resp_iq_stream_tx_info = {};
 
 static fifo_t fifo_dac;
 static uint8_t fifo_buffer_dac[1024*10+1];
@@ -104,22 +101,14 @@ void command_handler(const frame_t* frame) {
             command_send(RESP_ACK, frame->command.seq, 0, 0);
             break;
 
-        // case CMD_IQ_STREAM_RX:
-        //     uint8_t buf[FRAME_MAX_PAYLOAD];
-        //     int filled = fifo_get_filled(&fifo_adc);
-        //     if (filled>=FRAME_MAX_PAYLOAD){
-        //         fifo_read(&fifo_adc, buf, FRAME_MAX_PAYLOAD);
-        //         command_send(RESP_IQ_STREAM_RX, frame->command.seq, buf, FRAME_MAX_PAYLOAD);
-        //     }else{
-        //         command_send(RESP_IQ_STREAM_RX, frame->command.seq, 0, 0);
-        //     }
-        //     break;
         case CMD_IQ_STREAM_TX_INFO:
             fifo_write(&fifo_dac, frame->payload, frame->command.len);
+            resp_iq_stream_tx_info.bs = FRAME_MAX_PAYLOAD;
             resp_iq_stream_tx_info.free_space = fifo_get_free_space(&fifo_dac);
+            resp_iq_stream_tx_info.dac_overflow = fifo_get_overflow(&fifo_dac);
             resp_iq_stream_tx_info.tx_usb_overflow = transport_get_tx_overflow();
-            resp_iq_stream_tx_info.rx_usb_overflow = fifo_get_overflow(&fifo_dac); //transport_get_rx_overflow();
-
+            resp_iq_stream_tx_info.rx_usb_overflow = transport_get_rx_overflow();
+            
             command_send(RESP_IQ_STREAM_TX_INFO, frame->command.seq, (const uint8_t*)&resp_iq_stream_tx_info, sizeof(resp_iq_stream_tx_info));
             break;
 
@@ -138,7 +127,7 @@ void iq_dispatch() {
     int filled = fifo_get_filled(&fifo_adc);
     if (filled>=FRAME_MAX_PAYLOAD){
         fifo_read(&fifo_adc, buf, FRAME_MAX_PAYLOAD);
-        command_send(RESP_IQ_DATA, iq_usb_stream_seq++, buf, FRAME_MAX_PAYLOAD);
+        command_send(RESP_IQ_STREAM_RX, iq_usb_stream_seq++, buf, FRAME_MAX_PAYLOAD);
     }
 
     command_dispatch(command_handler);

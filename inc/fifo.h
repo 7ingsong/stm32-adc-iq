@@ -6,7 +6,7 @@
 typedef struct {
     volatile uint16_t head;
     volatile uint16_t tail;
-    volatile uint32_t overflow;
+    volatile uint16_t overflow;
     uint8_t* buffer;
     int size;
 } fifo_t;

@@ -17,14 +17,12 @@ CMD_IQ_STREAM_TX_START = 0x33
 CMD_IQ_STREAM_TX_STOP = 0x34
 CMD_IQ_STREAM_RX_START = 0x35
 CMD_IQ_STREAM_RX_STOP = 0x36
-CMD_IQ_STREAM_RX = 0x37
 
 RESP_ACK = 0x80
 RESP_ERR = 0x81
 RESP_IQ_STREAM = 0xB0
-RESP_IQ_DATA = 0xB1
+RESP_IQ_STREAM_RX = 0xB1
 RESP_IQ_STREAM_TX_INFO = 0xB2
-RESP_IQ_STREAM_RX = 0xB3
 
 ERR_NAMES = {
     1: "ERR_BAD_MAGIC",
@@ -183,11 +181,8 @@ class DeviceClient:
         while True:
             response = self.read_frame()
 
-            if response["cmd"] == RESP_IQ_DATA:
+            if response["cmd"] == RESP_IQ_STREAM_RX:
                 continue
-
-            # if response["cmd"] == RESP_IQ_STREAM_TX_INFO:
-            #     continue
 
             if response["seq"] != seq:
                 continue
@@ -225,36 +220,24 @@ class DeviceClient:
     def stop_rx(self):
         return self.req_command(CMD_IQ_STREAM_RX_STOP, cmd_resp=RESP_ACK)
 
-    def req_iq(self, payload=bytes()):
+    def cmd_iq_stream_tx_info(self, payload=bytes()):
         resp = self.req_command(CMD_IQ_STREAM_TX_INFO, cmd_resp=RESP_IQ_STREAM_TX_INFO, payload=payload)
-        request_size, overflow, tx_usb_overflow, rx_usb_overflow = struct.unpack("<IIII", resp)
-        return request_size, overflow, tx_usb_overflow, rx_usb_overflow
+        bs, free_space, consumtion_fail, dac_overflow, tx_usb_overflow, rx_usb_overflow = struct.unpack("<HHHHHH", resp)
+        return bs, free_space, consumtion_fail, dac_overflow, tx_usb_overflow, rx_usb_overflow
 
-    def req_rx_iq(self):
-        resp = self.req_command(CMD_IQ_STREAM_RX, cmd_resp=RESP_IQ_STREAM_RX)
-        return resp
-
-    def set_iq_stream_mode(self, mode):
-        return self.req_command(CMD_IQ_STREAM, cmd_resp=RESP_IQ_STREAM, payload=bytes((mode,)))
-
-    def set_iq_stream(self, enabled):
-        return self.set_iq_stream_mode(1 if enabled else 0)
-
-    def get_iq_stream_status(self):
-        return self.set_iq_stream_mode(2)
-
-    def get_iq_samples(self, timeout=5.0):
+    def get_rx_iq_samples(self, timeout=5.0):
         deadline = time.time() + timeout
         while time.time() < deadline:
             try:
                 frame = self.read_frame()
+                break
             except TimeoutError:
                 continue
 
-        if frame["cmd"] != RESP_IQ_DATA:
+        if frame["cmd"] != RESP_IQ_STREAM_RX:
             raise ProtocolError(f"unexpected response 0x{frame['cmd']:02X} {frame['payload'].hex()}")
 
-        print(f"frame seq={frame['seq']} length={len(frame['payload'])}")
+        # print(f"frame seq={frame['seq']} length={len(frame['payload'])}")
         return frame["payload"]
 
     def get_iq_stream_tx_info(self, timeout=5.0):
@@ -280,7 +263,7 @@ class DeviceClient:
         self.serial.reset_input_buffer()
         self.serial.write(build_frame(cmd, seq, payload))
 
-    def send_iq(self, payload=bytes()):
+    def send_iq_stream_tx(self, payload=bytes()):
         self.send(CMD_IQ_STREAM_TX, payload=payload)
 
     def pop(self, n):

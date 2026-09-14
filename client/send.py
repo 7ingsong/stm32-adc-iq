@@ -192,23 +192,23 @@ def main():
         
         client.start_tx()
         iq_data = b""
-        request_size2, overflow2, tx_usb_overflow2, rx_usb_overflow2 = 0, 0, 0, 0
-        deadline = time.time() + 60
+        consumtion_fail2, dac_overflow2, tx_usb_overflow2, rx_usb_overflow2 = 0, 0, 0, 0
+        deadline = time.time() + 10 #60
         while (deadline-time.time())>0:
-            SB = 256
+            #BS = 256
             
-            request_size, overflow, tx_usb_overflow, rx_usb_overflow = client.req_iq(payload=iq_data)
-            #print(f"Send IQ response: {request_size}, {overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
-            if request_size>=SB:
-                n = request_size//SB
-                k = request_size%SB
+            BS, request_size, consumtion_fail, dac_overflow, tx_usb_overflow, rx_usb_overflow = client.cmd_iq_stream_tx_info(payload=iq_data)
+            # print(f"Send IQ response: {request_size}, {consumtion_fail}, {dac_overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
+            if request_size>=BS:
+                n = request_size//BS
+                k = request_size%BS
                 for i in range(n-1):
-                    iq_data = dds.get_iq(SB//4)
-                    client.send_iq(payload=iq_data)
+                    iq_data = dds.get_iq(BS//4)
+                    client.send_iq_stream_tx(payload=iq_data)
 
-                last_chunk = dds.get_iq(SB//4)
+                last_chunk = dds.get_iq(BS//4)
                 if k>=4:
-                    client.send_iq(payload=last_chunk)
+                    client.send_iq_stream_tx(payload=last_chunk)
                     iq_data = dds.get_iq(k//4)
                 else:
                     iq_data = last_chunk
@@ -217,9 +217,9 @@ def main():
             else:
                 iq_data = b""
 
-            if overflow2 != overflow or tx_usb_overflow2 != tx_usb_overflow or rx_usb_overflow2 != rx_usb_overflow:
-                print(f"Send IQ response: {request_size}, {overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
-                overflow2, tx_usb_overflow2, rx_usb_overflow2 = overflow, tx_usb_overflow, rx_usb_overflow
+            if dac_overflow2 != dac_overflow or tx_usb_overflow2 != tx_usb_overflow or rx_usb_overflow2 != rx_usb_overflow or consumtion_fail != consumtion_fail2:
+                print(f"Send IQ response: {request_size}, {dac_overflow}, {tx_usb_overflow}, {rx_usb_overflow}")
+                dac_overflow2, tx_usb_overflow2, rx_usb_overflow2, consumtion_fail2 = dac_overflow, tx_usb_overflow, rx_usb_overflow, consumtion_fail
         client.stop_tx()
     finally:
         client.close()
